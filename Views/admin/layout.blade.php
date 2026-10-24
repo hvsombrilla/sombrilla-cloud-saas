@@ -15,7 +15,6 @@
     ['/scloud/clientes', 'Clientes', null, fn($p) => str_starts_with($p, '/scloud/clientes')],
     ['/scloud/tickets', 'Tickets', null, fn($p) => str_starts_with($p, '/scloud/tickets')],
     ['/scloud/planes', 'Planes', null, fn($p) => str_starts_with($p, '/scloud/planes')],
-    ['/scloud/servidores', 'Servidores WHM', null, fn($p) => str_starts_with($p, '/scloud/servidores')],
     ['/scloud/ajustes', 'Ajustes', null, fn($p) => str_starts_with($p, '/scloud/ajustes')],
   ];
   $__errs = scloud_errors();

@@ -175,7 +175,7 @@ class BillingService
             return ['ok' => false, 'error' => 'La factura no tiene balance pendiente.'];
         }
 
-        // Se marca antes de registrar el pago: el hook del pago puede tardar (creación de la cuenta en WHM).
+        // Se marca antes de registrar el pago: el hook del pago puede tardar (creación de la instancia).
         $proof->update([
             'status' => 'approved', 'reviewed_by' => $userId, 'reviewed_at' => now(),
             'review_notes' => $notes !== '' ? $notes : null,
@@ -246,7 +246,7 @@ class BillingService
         Mailer::paymentConfirmed($link->fresh(['customer', 'invoice']));
     }
 
-    /** Pedido pagado: fija las fechas y crea las cuentas en WHM. */
+    /** Pedido pagado: fija las fechas y crea las instancias. */
     private static function applyOrder(InvoiceLink $link): void
     {
         $order = Order::find($link->order_id);
@@ -262,12 +262,8 @@ class BillingService
             $service->save();
             ServiceLog::write($service->id, 'paid', true, 'Pago del pedido ' . $order->code . ' confirmado.', $service->customer_id);
 
-            if (Settings::bool('auto_provision')) {
-                $res = Provisioner::create($service);
-                $allActive = $allActive && $res['ok'];
-            } else {
-                $allActive = false;
-            }
+            $res = Provisioner::create($service);
+            $allActive = $allActive && $res['ok'];
         }
 
         if ($allActive) {

@@ -64,7 +64,8 @@
       <aside class="sc-card" style="position:sticky;top:84px">
         <h3>Tu pedido</h3>
         @foreach($items as $item)
-          <div class="sc-line"><span>{{ $item['plan']->name }}<br><small class="sc-muted">{{ \SombrillaCloud\Support\Cycles::label($item['cycle']) }}@if($item['domain']) · {{ $item['domain'] }}@endif</small></span><span>{{ scloud_money($item['price'] + $item['setup']) }}</span></div>
+          <div class="sc-line"><span>{{ $item['plan']->name }}<br><small class="sc-muted">{{ $item['workspace'] }} · {{ \SombrillaCloud\Support\Cycles::label($item['cycle']) }}@if(($item['mode'] ?? 'subdomain') === 'subdomain') · {{ \SombrillaCloud\Support\Tenancy::host($item['subdomain']) }}@elseif($item['domain']) · {{ $item['domain'] }}@endif</small></span><span>{{ scloud_money($item['price'] + $item['setup']) }}</span></div>
+          @if($item['domain_charge'] > 0)<div class="sc-line"><span><small class="sc-muted">Dominio {{ $item['domain'] }} (1 año)</small></span><span>{{ scloud_money($item['domain_charge']) }}</span></div>@endif
         @endforeach
         <div class="sc-line"><span>Subtotal</span><span>{{ scloud_money($totals['subtotal']) }}</span></div>
         <div class="sc-line"><span>{{ scloud_setting('tax_label') }} ({{ $totals['rate'] }}%)</span><span>{{ scloud_money($totals['tax']) }}</span></div>

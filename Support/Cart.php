@@ -4,7 +4,7 @@ namespace SombrillaCloud\Support;
 
 use SombrillaCloud\Models\Plan;
 
-/** Carrito en sesión: lista de ['key', 'plan_id', 'cycle', 'domain']. */
+/** Carrito en sesión: lista de ['key', 'plan_id', 'cycle', 'mode', 'subdomain', 'domain', 'workspace', 'domain_price']. */
 final class Cart
 {
     private const KEY = 'scloud_cart';
@@ -16,11 +16,12 @@ final class Cart
         return array_values(is_array($_SESSION[self::KEY] ?? null) ? $_SESSION[self::KEY] : []);
     }
 
-    public static function add(int $planId, string $cycle, ?string $domain): string
+    /** @param array $data mode, subdomain, domain, workspace, domain_price (ya validados por OrderService::validateItem) */
+    public static function add(int $planId, string $cycle, array $data): string
     {
         self::start();
         $key = bin2hex(random_bytes(6));
-        $_SESSION[self::KEY][] = ['key' => $key, 'plan_id' => $planId, 'cycle' => $cycle, 'domain' => $domain];
+        $_SESSION[self::KEY][] = ['key' => $key, 'plan_id' => $planId, 'cycle' => $cycle] + array_intersect_key($data, array_flip(['mode', 'subdomain', 'domain', 'workspace', 'domain_price']));
 
         return $key;
     }
@@ -56,8 +57,9 @@ final class Cart
                 continue;
             }
             $setup     = (float) $plan->setup_fee;
-            $subtotal += $price + $setup;
-            $out[]     = $item + ['plan' => $plan, 'price' => $price, 'setup' => $setup];
+            $domain    = (float) ($item['domain_price'] ?? 0);
+            $subtotal += $price + $setup + $domain;
+            $out[]     = $item + ['plan' => $plan, 'price' => $price, 'setup' => $setup, 'domain_charge' => $domain];
         }
 
         return ['items' => $out, 'totals' => \SombrillaCloud\Services\BillingService::totals($subtotal)];

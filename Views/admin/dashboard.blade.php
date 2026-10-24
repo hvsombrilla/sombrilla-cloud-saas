@@ -4,7 +4,7 @@
 @section('scloud')
 <div class="sca-head"><h1>☂ Sombrilla Cloud</h1><a class="sc-btn sc-btn--ghost sc-btn--sm" href="{{ url('/') }}" target="_blank">Ver sitio público ↗</a></div>
 
-@if($stats['failed'])<div class="sc-alert sc-alert--bad">{{ $stats['failed'] }} servicio(s) no se pudieron crear en WHM. <a href="{{ url('/scloud/servicios?estado=failed') }}">Revisar</a></div>@endif
+@if($stats['failed'])<div class="sc-alert sc-alert--bad">{{ $stats['failed'] }} servicio(s) no se pudieron crear. <a href="{{ url('/scloud/servicios?estado=failed') }}">Revisar</a></div>@endif
 
 <div class="sc-stats">
   <a class="sc-stat" href="{{ url('/scloud/pagos') }}"><span>Comprobantes por validar</span><strong>{{ $stats['proofs'] }}</strong></a>
@@ -44,7 +44,7 @@
   <div class="sc-card">
     <div class="sc-card-head"><h3>Mantenimiento</h3><span class="sc-muted">Último cron: {{ $cronLast ?: 'nunca' }}</span></div>
     @forelse($lastErrors as $l)<div class="sc-line"><span><span class="sc-chip sc-chip--bad">{{ $l->action }}</span> {{ \Illuminate\Support\Str::limit($l->message, 90) }}</span><span class="sc-muted">{{ $l->created_at->format('d/m H:i') }}</span></div>
-    @empty<div class="sc-muted">Sin errores recientes en WHM ni en la facturación.</div>@endforelse
+    @empty<div class="sc-muted">Sin errores recientes al crear instancias ni en la facturación.</div>@endforelse
     @if($failedServices->count())<hr style="border:0;border-top:1px solid var(--border)"><strong>Servicios con error</strong>@foreach($failedServices as $s)<div class="sc-line"><a href="{{ url('/scloud/servicios/' . $s->id) }}">{{ $s->title() }}</a><span class="sc-muted">{{ \Illuminate\Support\Str::limit($s->last_error, 60) }}</span></div>@endforeach @endif
   </div>
 </div>

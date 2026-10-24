@@ -7,8 +7,8 @@ use SombrillaCloud\Models\Service;
 use SombrillaCloud\Models\ServiceLog;
 use SombrillaCloud\Services\BillingService;
 use SombrillaCloud\Services\Provisioner;
-use SombrillaCloud\Services\Whm;
-use SombrillaCloud\Services\WhmException;
+use SombrillaCloud\Services\DomainService;
+use SombrillaCloud\Support\Tenancy;
 
 class ServiceController
 {
@@ -22,55 +22,43 @@ class ServiceController
     public function show(int $id)
     {
         $service = $this->own($id);
-        $usage   = null;
-        if ($service->status === 'active' && $service->username && $service->server) {
-            try {
-                $usage = Whm::for($service->server)->summary($service->username);
-            } catch (WhmException) {
-                $usage = null;
-            }
-        }
         $renewal = $service->next_due_date ? BillingService::renewalInvoiceFor($service, $service->next_due_date->format('Y-m-d')) : null;
+        $dns     = $service->domain && $service->domain_mode === 'own' && $service->subdomain ? DomainService::dnsInstructions($service->subdomain, $service->domain) : null;
 
-        return scloud_view('client.service', ['service' => $service, 'usage' => $usage, 'renewal' => $renewal]);
+        return scloud_view('client.service', ['service' => $service, 'renewal' => $renewal, 'dns' => $dns]);
     }
 
-    public function cpanel(int $id)
+    /** Autologin: abre la instancia ya autenticada como su administrador (token firmado de un solo uso). */
+    public function open(int $id)
     {
         $service = $this->own($id);
-        $res     = Provisioner::cpanelUrl($service);
+        $res     = Provisioner::loginUrl($service);
         if (!$res['ok']) {
             flash('error', $res['error']);
 
             return redirect(url('/cliente/servicios/' . $service->id));
         }
-        ServiceLog::write($service->id, 'cpanel_login', true, 'Acceso a cPanel desde el panel de clientes.', $service->customer_id);
+        ServiceLog::write($service->id, 'autologin', true, 'Acceso a la instancia desde el panel de clientes.', $service->customer_id);
 
         return redirect($res['url']);
     }
 
-    public function password(Request $request, int $id)
+    /** Comprueba si el CNAME del dominio propio ya apunta a la instancia. */
+    public function verifyDomain(int $id)
     {
-        $service  = $this->own($id);
-        $password = (string) $request->input('password');
-        $back     = '/cliente/servicios/' . $service->id;
+        $service = $this->own($id);
+        if (!$service->domain || $service->domain_status === 'connected') {
+            return redirect(url('/cliente/servicios/' . $service->id));
+        }
+        DomainService::sync($service);
+        $service->refresh();
+        if ($service->domain_status === 'connected') {
+            flash('success', '¡Listo! ' . $service->domain . ' ya apunta a tu instancia. Puede tardar unos minutos en activarse el certificado SSL.');
+        } else {
+            flash('error', 'Todavía no vemos el CNAME. Los cambios de DNS pueden tardar hasta unas horas en propagarse; vuelve a intentarlo luego.');
+        }
 
-        if ($service->status !== 'active') {
-            return scloud_back_with($back, ['Solo puedes cambiar la contraseña de un servicio activo.']);
-        }
-        if (strlen($password) < 12 || !preg_match('/[a-z]/', $password) || !preg_match('/[A-Z]/', $password) || !preg_match('/\d/', $password)) {
-            return scloud_back_with($back, ['La contraseña debe tener al menos 12 caracteres, con mayúsculas, minúsculas y números.']);
-        }
-        if ($password !== (string) $request->input('password_confirmation')) {
-            return scloud_back_with($back, ['Las contraseñas no coinciden.']);
-        }
-        $res = Provisioner::changePassword($service, $password);
-        if (!$res['ok']) {
-            return scloud_back_with($back, ['No se pudo cambiar la contraseña: ' . $res['error']]);
-        }
-        flash('success', 'Contraseña de cPanel actualizada.');
-
-        return redirect(url($back));
+        return redirect(url('/cliente/servicios/' . $service->id));
     }
 
     /** Solicita la cancelación: se aplica al vencimiento y evita nuevas facturas de renovación. */
@@ -98,7 +86,7 @@ class ServiceController
 
     private function own(int $id): Service
     {
-        $service = Service::with('plan', 'server', 'order')->where('id', $id)->where('customer_id', scloud_customer()->id)->first();
+        $service = Service::with('plan', 'order')->where('id', $id)->where('customer_id', scloud_customer()->id)->first();
         if (!$service) {
             scloud_not_found();
         }

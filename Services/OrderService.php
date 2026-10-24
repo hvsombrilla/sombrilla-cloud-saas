@@ -9,6 +9,7 @@ use SombrillaCloud\Models\Plan;
 use SombrillaCloud\Models\Service;
 use SombrillaCloud\Support\Cycles;
 use SombrillaCloud\Support\Mailer;
+use SombrillaCloud\Support\Tenancy;
 
 class OrderService
 {
@@ -29,18 +30,15 @@ class OrderService
     /** Motivo por el que un dominio no puede usarse, o null. */
     public static function domainError(?string $domain, ?int $ignoreServiceId = null): ?string
     {
-        if ($domain === null) {
-            return 'Escribe un dominio válido (por ejemplo: miempresa.com).';
-        }
-        $taken = Service::where('domain', $domain)
-            ->whereIn('status', ['pending', 'active', 'suspended', 'failed'])
-            ->when($ignoreServiceId, fn($q) => $q->where('id', '!=', $ignoreServiceId))
-            ->exists();
-
-        return $taken ? "El dominio {$domain} ya tiene un servicio con nosotros." : null;
+        return DomainService::domainError($domain, $ignoreServiceId);
     }
 
-    /** Valida un ítem del carrito. @return array{ok: bool, error?: string, plan?: Plan, price?: float, domain?: ?string} */
+    /**
+     * Valida un ítem del carrito: plan, ciclo, nombre del workspace y la opción de dominio
+     * (subdominio elegido, dominio propio o dominio comprado). Los precios se recalculan aquí, nunca vienen del cliente.
+     *
+     * @return array{ok: bool, error?: string, plan?: Plan, price?: float, mode?: string, subdomain?: string, domain?: ?string, workspace?: string, domain_price?: float, domain_cost?: ?float}
+     */
     public static function validateItem(array $item): array
     {
         $plan = Plan::where('id', (int) ($item['plan_id'] ?? 0))->where('is_active', true)->first();
@@ -52,15 +50,53 @@ class OrderService
         if ($price === null) {
             return ['ok' => false, 'error' => "El plan {$plan->name} no se ofrece con ciclo " . Cycles::label($cycle) . '.'];
         }
-        $domain = null;
-        if ($plan->requires_domain) {
-            $domain = self::normalizeDomain((string) ($item['domain'] ?? ''));
-            if ($error = self::domainError($domain)) {
+
+        $workspace = trim(preg_replace('/\s+/', ' ', (string) ($item['workspace'] ?? '')));
+        if ($error = \Studio\Services\Workspace::validateName($workspace)) {
+            return ['ok' => false, 'error' => str_replace('espacio de trabajo', 'workspace', $error)];
+        }
+
+        $mode = (string) ($item['mode'] ?? 'subdomain');
+        if (!DomainService::modeEnabled($mode)) {
+            return ['ok' => false, 'error' => 'Esa opción de dominio no está disponible.'];
+        }
+
+        $subdomain   = strtolower(trim((string) ($item['subdomain'] ?? '')));
+        $domain      = null;
+        $domainPrice = 0.0;
+        $domainCost  = null;
+
+        if ($mode === 'subdomain') {
+            if ($error = DomainService::subdomainError($subdomain)) {
                 return ['ok' => false, 'error' => $error];
+            }
+        } else {
+            $domain = self::normalizeDomain((string) ($item['domain'] ?? ''));
+            if ($error = DomainService::domainError($domain)) {
+                return ['ok' => false, 'error' => $error];
+            }
+            // El subdominio de una instancia con dominio propio/comprado se genera con el nombre del workspace.
+            if ($subdomain === '' || DomainService::subdomainError($subdomain) !== null) {
+                $subdomain = DomainService::generateSlug($workspace);
+            }
+            if ($mode === 'buy') {
+                try {
+                    $check = Cloudflare::checkOne($domain);
+                } catch (CloudflareException $e) {
+                    return ['ok' => false, 'error' => 'No pudimos verificar la disponibilidad del dominio en este momento. Inténtalo de nuevo en unos minutos.'];
+                }
+                if (!$check || !$check['registrable']) {
+                    return ['ok' => false, 'error' => "El dominio {$domain} no está disponible para registrar."];
+                }
+                $domainPrice = (float) $check['price'];
+                $domainCost  = $check['cost'];
             }
         }
 
-        return ['ok' => true, 'plan' => $plan, 'price' => $price, 'domain' => $domain];
+        return [
+            'ok' => true, 'plan' => $plan, 'price' => $price, 'mode' => $mode, 'subdomain' => $subdomain, 'domain' => $domain,
+            'workspace' => $workspace, 'domain_price' => $domainPrice, 'domain_cost' => $domainCost,
+        ];
     }
 
     /**
@@ -75,21 +111,24 @@ class OrderService
             return ['ok' => false, 'errors' => ['Tu carrito está vacío.']];
         }
 
-        $valid   = [];
-        $errors  = [];
-        $domains = [];
+        $valid = [];
+        $errors = [];
+        $seen   = [];
         foreach ($items as $item) {
             $res = self::validateItem($item);
             if (!$res['ok']) {
                 $errors[] = $res['error'];
                 continue;
             }
-            if ($res['domain'] && in_array($res['domain'], $domains, true)) {
-                $errors[] = "El dominio {$res['domain']} está repetido en el carrito.";
-                continue;
+            // Dos ítems del mismo pedido no pueden compartir subdominio ni dominio.
+            foreach (array_filter([$res['subdomain'], $res['domain']]) as $name) {
+                if (in_array($name, $seen, true)) {
+                    $errors[] = "«{$name}» está repetido en el carrito.";
+                    continue 2;
+                }
+                $seen[] = $name;
             }
-            $domains[] = $res['domain'];
-            $valid[]   = $res + ['cycle' => (string) $item['cycle']];
+            $valid[] = $res + ['cycle' => (string) $item['cycle']];
         }
         if ($errors) {
             return ['ok' => false, 'errors' => $errors];
@@ -109,9 +148,13 @@ class OrderService
                     'customer_id'   => $customer->id,
                     'plan_id'       => $v['plan']->id,
                     'order_id'      => $order->id,
-                    'server_id'     => $v['plan']->server_id,
-                    'domain'        => $v['domain'],
-                    'whm_package'   => $v['plan']->whm_package,
+                    'subdomain'      => $v['subdomain'],
+                    'domain_mode'    => $v['mode'],
+                    'domain'         => $v['domain'],
+                    'domain_status'  => null,
+                    'domain_price'   => $v['domain_price'],
+                    'domain_cost_usd' => $v['domain_cost'],
+                    'workspace_name' => $v['workspace'],
                     'billing_cycle' => $v['cycle'],
                     'amount'        => $v['price'],
                     'status'        => 'pending',
@@ -129,11 +172,15 @@ class OrderService
             $end = Cycles::addTo(date('Y-m-d'), $v['cycle'])->format('d/m/Y');
             $lines[] = [
                 'product_id'  => $v['plan']->product_id,
-                'description' => "Hosting {$v['plan']->name}" . ($v['domain'] ? " — {$v['domain']}" : '') . ' · ' . Cycles::label($v['cycle']) . " ({$start} - {$end})",
+                'description' => "Instancia {$v['plan']->name} — " . Tenancy::host($v['subdomain']) . ' · ' . Cycles::label($v['cycle']) . " ({$start} - {$end})",
                 'quantity'    => 1,
                 'unit_price'  => $v['price'],
             ];
             $subtotal += $v['price'];
+            if ($v['domain_price'] > 0) {
+                $lines[] = ['description' => "Registro del dominio {$v['domain']} (1 año)", 'quantity' => 1, 'unit_price' => $v['domain_price']];
+                $subtotal += $v['domain_price'];
+            }
             if ($v['plan']->setup_fee > 0) {
                 $lines[] = ['description' => "Instalación {$v['plan']->name}", 'quantity' => 1, 'unit_price' => $v['plan']->setup_fee];
                 $subtotal += $v['plan']->setup_fee;

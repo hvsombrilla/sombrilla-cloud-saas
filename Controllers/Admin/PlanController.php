@@ -4,7 +4,6 @@ namespace SombrillaCloud\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use SombrillaCloud\Models\Plan;
-use SombrillaCloud\Models\Server;
 use SombrillaCloud\Models\Service;
 use SombrillaCloud\Support\Cycles;
 
@@ -12,7 +11,7 @@ class PlanController
 {
     public function index()
     {
-        $plans  = Plan::with('server')->orderBy('sort_order')->orderBy('id')->get();
+        $plans  = Plan::orderBy('sort_order')->orderBy('id')->get();
         $counts = Service::whereIn('status', ['active', 'suspended', 'pending'])->selectRaw('plan_id, count(*) as n')->groupBy('plan_id')->pluck('n', 'plan_id');
 
         return scloud_view('admin.plans', ['plans' => $plans, 'counts' => $counts]);
@@ -20,7 +19,7 @@ class PlanController
 
     public function create()
     {
-        return scloud_view('admin.plan-form', ['plan' => new Plan(['is_active' => true, 'requires_domain' => true, 'category' => 'Hosting compartido']), 'servers' => Server::orderBy('name')->get()]);
+        return scloud_view('admin.plan-form', ['plan' => new Plan(['is_active' => true, 'category' => 'Instancias'])]);
     }
 
     public function store(Request $request)
@@ -37,7 +36,7 @@ class PlanController
 
     public function edit(int $id)
     {
-        return scloud_view('admin.plan-form', ['plan' => Plan::findOrFail($id), 'servers' => Server::orderBy('name')->get()]);
+        return scloud_view('admin.plan-form', ['plan' => Plan::findOrFail($id)]);
     }
 
     public function update(Request $request, int $id)
@@ -89,22 +88,15 @@ class PlanController
         if (!$any) {
             return 'Define el precio de al menos un ciclo de facturación.';
         }
-        $serverId = (int) $request->input('server_id');
-        if ($serverId && !Server::where('id', $serverId)->exists()) {
-            $serverId = 0;
-        }
 
         return $prices + [
             'name' => mb_substr($name, 0, 150), 'slug' => $slug,
-            'category' => mb_substr(trim((string) $request->input('category')) ?: 'Hosting', 0, 100),
+            'category' => mb_substr(trim((string) $request->input('category')) ?: 'Instancias', 0, 100),
             'tagline' => mb_substr(trim((string) $request->input('tagline')), 0, 250) ?: null,
             'description' => trim((string) $request->input('description')) ?: null,
             'features' => trim((string) $request->input('features')) ?: null,
-            'server_id' => $serverId ?: null,
-            'whm_package' => mb_substr(trim((string) $request->input('whm_package')), 0, 190) ?: null,
             'product_id' => (int) $request->input('product_id') ?: null,
             'setup_fee' => max(0, (float) $request->input('setup_fee')),
-            'requires_domain' => (bool) $request->input('requires_domain'),
             'is_featured' => (bool) $request->input('is_featured'),
             'is_active' => (bool) $request->input('is_active'),
             'is_hidden' => (bool) $request->input('is_hidden'),

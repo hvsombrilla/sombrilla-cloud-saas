@@ -5,7 +5,7 @@
 <div class="sca-head"><h1>Pedido {{ $order->code }} {!! scloud_chip($order->statusLabel(), $order->statusTone()) !!}</h1>
   <div class="sc-actions">
     @if(in_array($order->status, ['paid', 'active'], true) && $order->services->whereIn('status', ['pending', 'failed'])->count())
-      <form method="post" action="{{ url('/scloud/pedidos/' . $order->id . '/activar') }}">{!! scloud_csrf() !!}<button class="sc-btn sc-btn--ok">Crear cuentas en WHM</button></form>
+      <form method="post" action="{{ url('/scloud/pedidos/' . $order->id . '/activar') }}">{!! scloud_csrf() !!}<button class="sc-btn sc-btn--ok">Crear instancias</button></form>
     @endif
     @if($order->status === 'pending')
       <form method="post" action="{{ url('/scloud/pedidos/' . $order->id . '/cancelar') }}" onsubmit="return confirm('¿Cancelar el pedido y anular su factura?')">{!! scloud_csrf() !!}<button class="sc-btn sc-btn--danger">Cancelar pedido</button></form>
@@ -14,8 +14,8 @@
 
 <div class="sc-cols-21">
   <div>
-    <div class="sc-card"><h3>Servicios</h3><div class="sc-table-wrap"><table class="sc-table"><thead><tr><th>Plan</th><th>Dominio</th><th>Ciclo</th><th>Importe</th><th>Estado</th></tr></thead><tbody>
-      @foreach($order->services as $s)<tr><td><a href="{{ url('/scloud/servicios/' . $s->id) }}">{{ $s->plan->name ?? '—' }}</a></td><td>{{ $s->domain ?: '—' }}</td><td>{{ $s->cycleLabel() }}</td><td>{{ scloud_money($s->amount) }}</td><td>{!! scloud_chip($s->statusLabel(), $s->statusTone()) !!}@if($s->last_error)<div class="sc-muted" style="font-size:12px">{{ \Illuminate\Support\Str::limit($s->last_error, 80) }}</div>@endif</td></tr>@endforeach
+    <div class="sc-card"><h3>Servicios</h3><div class="sc-table-wrap"><table class="sc-table"><thead><tr><th>Plan</th><th>Instancia</th><th>Ciclo</th><th>Importe</th><th>Estado</th></tr></thead><tbody>
+      @foreach($order->services as $s)<tr><td><a href="{{ url('/scloud/servicios/' . $s->id) }}">{{ $s->plan->name ?? '—' }}</a></td><td>{{ $s->host() ?: '—' }}@if($s->domain)<div class="sc-muted">{{ $s->domain }}</div>@endif</td><td>{{ $s->cycleLabel() }}</td><td>{{ scloud_money($s->amount) }}</td><td>{!! scloud_chip($s->statusLabel(), $s->statusTone()) !!}@if($s->last_error)<div class="sc-muted" style="font-size:12px">{{ \Illuminate\Support\Str::limit($s->last_error, 80) }}</div>@endif</td></tr>@endforeach
     </tbody></table></div></div>
     <div class="sc-card"><h3>Comprobantes</h3>
       @forelse($proofs as $p)<div class="sc-line"><span>{{ scloud_date($p->paid_at) }} · {{ scloud_money($p->amount) }} · <span class="sc-mono">{{ $p->reference }}</span></span>{!! scloud_chip($p->statusLabel(), $p->statusTone()) !!}</div>

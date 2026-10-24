@@ -46,42 +46,20 @@ class Migrations
             });
         }
 
-        if (!$schema->hasTable('scloud_servers')) {
-            $schema->create('scloud_servers', function (Blueprint $t) {
-                $t->id();
-                $t->string('name');
-                $t->string('hostname');
-                $t->string('ip', 45)->nullable();
-                $t->unsignedInteger('port')->default(2087);
-                $t->string('username', 60)->default('root');
-                $t->text('api_token')->nullable(); // cifrado
-                $t->boolean('verify_ssl')->default(true);
-                $t->string('ns1')->nullable();
-                $t->string('ns2')->nullable();
-                $t->unsignedInteger('max_accounts')->default(0); // 0 = sin límite
-                $t->boolean('is_active')->default(true);
-                $t->text('notes')->nullable();
-                $t->timestamps();
-            });
-        }
-
         if (!$schema->hasTable('scloud_plans')) {
             $schema->create('scloud_plans', function (Blueprint $t) {
                 $t->id();
                 $t->string('name');
                 $t->string('slug')->unique();
-                $t->string('category', 100)->default('Hosting');
+                $t->string('category', 100)->default('Instancias');
                 $t->string('tagline')->nullable();
                 $t->text('description')->nullable();
                 $t->text('features')->nullable(); // una característica por línea
-                $t->unsignedBigInteger('server_id')->nullable();
-                $t->string('whm_package')->nullable();
                 $t->unsignedBigInteger('product_id')->nullable(); // producto (servicio) del ERP
                 foreach (array_keys(\SombrillaCloud\Support\Cycles::ALL) as $cycle) {
                     $t->decimal('price_' . $cycle, 16, 2)->nullable(); // null = ciclo no ofrecido
                 }
                 $t->decimal('setup_fee', 16, 2)->default(0);
-                $t->boolean('requires_domain')->default(true);
                 $t->boolean('is_featured')->default(false);
                 $t->boolean('is_active')->default(true);
                 $t->boolean('is_hidden')->default(false);
@@ -111,11 +89,16 @@ class Migrations
                 $t->unsignedBigInteger('customer_id')->index();
                 $t->unsignedBigInteger('plan_id')->index();
                 $t->unsignedBigInteger('order_id')->nullable()->index();
-                $t->unsignedBigInteger('server_id')->nullable()->index();
-                $t->string('domain')->nullable()->index();
-                $t->string('username', 32)->nullable()->index();
-                $t->text('password')->nullable(); // cifrado
-                $t->string('whm_package')->nullable();
+                $t->string('subdomain', 40)->nullable()->index();   // {subdominio}.sombrilla.cloud
+                $t->string('domain_mode', 10)->default('subdomain'); // subdomain | buy | own
+                $t->string('domain')->nullable()->index();           // dominio propio o comprado
+                $t->string('domain_status', 20)->nullable();         // registering | dns_pending | connected | failed
+                $t->decimal('domain_price', 16, 2)->default(0);      // lo cobrado al cliente por el dominio (1.er año)
+                $t->decimal('domain_cost_usd', 10, 2)->nullable();   // costo en Cloudflare
+                $t->date('domain_expires_at')->nullable();
+                $t->string('workspace_name', 60)->nullable();
+                $t->string('admin_email')->nullable();               // administrador de la instancia
+                $t->dateTime('provisioned_at')->nullable();
                 $t->string('billing_cycle', 20)->default('monthly');
                 $t->decimal('amount', 16, 2)->default(0); // precio recurrente sin impuestos
                 $t->string('status', 20)->default('pending'); // pending | active | suspended | terminated | cancelled | failed
@@ -225,6 +208,72 @@ class Migrations
             });
         }
 
+        self::upgrade($schema);
+
         SsOption::set(self::OPTION, SCLOUD_DB_VERSION);
+    }
+
+    /**
+     * v2: el servicio pasa de cuentas cPanel/WHM a instancias de Studio. Añade las columnas nuevas y ELIMINA lo de WHM,
+     * incluida la tabla de servidores con sus API tokens y las contraseñas de cPanel guardadas. Idempotente.
+     */
+    private static function upgrade($schema): void
+    {
+        $add = [
+            'subdomain'         => fn(Blueprint $t) => $t->string('subdomain', 40)->nullable()->index(),
+            'domain_mode'       => fn(Blueprint $t) => $t->string('domain_mode', 10)->default('subdomain'),
+            'domain_status'     => fn(Blueprint $t) => $t->string('domain_status', 20)->nullable(),
+            'domain_price'      => fn(Blueprint $t) => $t->decimal('domain_price', 16, 2)->default(0),
+            'domain_cost_usd'   => fn(Blueprint $t) => $t->decimal('domain_cost_usd', 10, 2)->nullable(),
+            'domain_expires_at' => fn(Blueprint $t) => $t->date('domain_expires_at')->nullable(),
+            'workspace_name'    => fn(Blueprint $t) => $t->string('workspace_name', 60)->nullable(),
+            'admin_email'       => fn(Blueprint $t) => $t->string('admin_email')->nullable(),
+            'provisioned_at'    => fn(Blueprint $t) => $t->dateTime('provisioned_at')->nullable(),
+        ];
+        foreach ($add as $column => $definition) {
+            if (!$schema->hasColumn('scloud_services', $column)) {
+                $schema->table('scloud_services', fn(Blueprint $t) => $definition($t));
+            }
+        }
+
+        // Primero se vacían los secretos y después se quitan las columnas.
+        if ($schema->hasColumn('scloud_services', 'password')) {
+            Capsule::table('scloud_services')->update(['password' => null]);
+        }
+        if ($schema->hasTable('scloud_servers')) {
+            Capsule::table('scloud_servers')->update(['api_token' => null]);
+            $schema->drop('scloud_servers');
+        }
+        $drop = [
+            'scloud_services' => ['server_id', 'username', 'password', 'whm_package'],
+            'scloud_plans'    => ['server_id', 'whm_package', 'requires_domain'],
+        ];
+        foreach ($drop as $table => $columns) {
+            foreach ($columns as $column) {
+                if (!$schema->hasColumn($table, $column)) {
+                    continue;
+                }
+                try {
+                    try {
+                        $schema->table($table, fn(Blueprint $t) => $t->dropIndex([$column]));
+                    } catch (\Throwable) {
+                        // la columna no tenía índice
+                    }
+                    $schema->table($table, fn(Blueprint $t) => $t->dropColumn($column));
+                } catch (\Throwable $e) {
+                    error_log("[sombrilla-cloud] no se pudo quitar {$table}.{$column}: " . $e->getMessage());
+                }
+            }
+        }
+
+        // Ajustes que ya no existen.
+        try {
+            $settings = SsOption::get('scloud_settings', []);
+            if (is_array($settings)) {
+                unset($settings['auto_provision'], $settings['username_length']);
+                SsOption::set('scloud_settings', $settings);
+            }
+        } catch (\Throwable) {
+        }
     }
 }

@@ -12,7 +12,7 @@ use SombrillaCloud\Support\Mailer;
 use SombrillaCloud\Support\Settings;
 
 /**
- * Tarea diaria: facturas de renovación, suspensión por falta de pago y terminación (si está activada).
+ * Tarea periódica: dominios en curso, facturas de renovación, suspensión por falta de pago y terminación (si está activada).
  * Se ejecuta desde /scloud/cron?key=… o con el botón «Ejecutar ahora» en Ajustes.
  */
 class CronService
@@ -22,8 +22,9 @@ class CronService
     public function run(): array
     {
         @set_time_limit(600);
-        $stats = ['invoices' => 0, 'suspended' => 0, 'terminated' => 0, 'errors' => []];
+        $stats = ['invoices' => 0, 'suspended' => 0, 'terminated' => 0, 'domains' => 0, 'errors' => []];
 
+        $this->domains($stats);
         $this->renewals($stats);
         $this->suspensions($stats);
         $this->terminations($stats);
@@ -34,6 +35,21 @@ class CronService
         }
 
         return $stats;
+    }
+
+    /** Avanza los dominios en curso (registro en Cloudflare, DNS, verificación del CNAME). Conviene ejecutar el cron cada 10-15 min. */
+    private function domains(array &$stats): void
+    {
+        $services = Service::with('customer')->whereIn('status', ['active', 'suspended'])
+            ->whereIn('domain_status', ['registering', 'dns_pending'])->get();
+        foreach ($services as $service) {
+            try {
+                DomainService::sync($service);
+                $stats['domains']++;
+            } catch (\Throwable $e) {
+                $stats['errors'][] = $service->title() . ': ' . $e->getMessage();
+            }
+        }
     }
 
     /** Genera la factura de renovación N días antes del vencimiento. */
@@ -57,7 +73,7 @@ class CronService
 
             $res = BillingService::createInvoice($service->customer, [[
                 'product_id'  => $service->plan->product_id ?? null,
-                'description' => 'Renovación hosting ' . ($service->plan->name ?? '') . ($service->domain ? " — {$service->domain}" : '')
+                'description' => 'Renovación instancia ' . ($service->plan->name ?? '') . ($service->host() ? " — {$service->host()}" : '')
                     . ' · ' . $service->cycleLabel() . ' (' . $service->next_due_date->format('d/m/Y') . ' - ' . $to->format('d/m/Y') . ')',
                 'quantity'    => 1,
                 'unit_price'  => $service->amount,
@@ -86,7 +102,7 @@ class CronService
         }
         $limit = Carbon::today()->subDays($days)->format('Y-m-d');
 
-        $services = Service::with('server', 'plan', 'customer')->where('status', 'active')
+        $services = Service::with('plan', 'customer')->where('status', 'active')
             ->whereNotNull('next_due_date')->whereDate('next_due_date', '<', $limit)->get();
 
         foreach ($services as $service) {
@@ -112,7 +128,7 @@ class CronService
         }
         $limit = Carbon::today()->subDays($days)->format('Y-m-d');
 
-        $services = Service::with('server')->where('status', 'suspended')->where('suspend_reason', self::NONPAYMENT)
+        $services = Service::where('status', 'suspended')->where('suspend_reason', self::NONPAYMENT)
             ->whereNotNull('next_due_date')->whereDate('next_due_date', '<', $limit)->get();
 
         foreach ($services as $service) {

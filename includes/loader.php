@@ -14,13 +14,12 @@ register_permission_group('scloud', 'Sombrilla Cloud', [
     'scloud_view'             => 'Ver pedidos, servicios, clientes y tickets',
     'scloud_manage_orders'    => 'Gestionar pedidos',
     'scloud_approve_payments' => 'Validar comprobantes de transferencia',
-    'scloud_manage_services'  => 'Gestionar servicios (crear, suspender, terminar en WHM)',
+    'scloud_manage_services'  => 'Gestionar servicios (crear, suspender, archivar instancias)',
     'scloud_manage_customers' => 'Editar clientes',
     'scloud_manage_tickets'   => 'Responder y gestionar tickets',
     'scloud_manage_plans'     => 'Gestionar planes',
-    'scloud_manage_servers'   => 'Gestionar servidores WHM',
     'scloud_manage_settings'  => 'Ajustes de Sombrilla Cloud',
-], 'fa fa-cloud');
+], 'ph ph-cloud');
 
 // Las facturas de Sombrilla Cloud son a crédito (cuenta por cobrar) pero sin límite de crédito ni mora:
 // el ciclo de cobro (renovación, suspensión) lo lleva este plugin.

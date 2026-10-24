@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Sombrilla Cloud
  * Plugin URI: https://sombrilla.cloud
- * Description: Plataforma de venta de hosting: sitio público, planes, carrito y checkout, panel de clientes, aprovisionamiento automático en WHM/cPanel, pagos por transferencia bancaria, tickets de soporte y facturación con el ERP.
- * Version: 1.0.0
+ * Description: Venta de instancias de Sombrilla Studio: sitio público, planes, carrito y checkout, subdominio/dominio propio o comprado (Cloudflare), instancia con SQLite propia y autologin, pagos por transferencia, tickets y facturación con el ERP.
+ * Version: 2.0.0
  * Author: HV Sombrilla
  * Author URI: https://hvsombrilla.com
  * License: GPL v2 or later
@@ -18,8 +18,8 @@ if (!defined('ABSPATH')) {
 
 define('SCLOUD_DIR',        __DIR__ . '/');
 define('SCLOUD_URL',        '/plugins/sombrilla-cloud/');
-define('SCLOUD_VERSION',    '1.0.0');
-define('SCLOUD_DB_VERSION', '1');
+define('SCLOUD_VERSION',    '2.0.0');
+define('SCLOUD_DB_VERSION', '2');
 
 // Autoloader del plugin (namespace raíz: SombrillaCloud\)
 spl_autoload_register(function (string $class): void {
@@ -39,7 +39,7 @@ add_filter('ss_admin_menu', function (array $menu): array {
         return $menu;
     }
 
-    $menu[] = ['id' => 'scloud', 'name' => 'Sombrilla Cloud', 'url' => url('/scloud'), 'icon' => 'fa fa-cloud'];
+    $menu[] = ['id' => 'scloud', 'name' => 'Sombrilla Cloud', 'url' => url('/scloud'), 'icon' => 'ph ph-cloud'];
     $menu[] = ['name' => 'Panel', 'url' => url('/scloud'), 'parent' => 'scloud'];
     $menu[] = ['name' => 'Pedidos', 'url' => url('/scloud/pedidos'), 'parent' => 'scloud'];
     $menu[] = ['name' => 'Pagos por validar', 'url' => url('/scloud/pagos'), 'parent' => 'scloud'];
@@ -49,9 +49,6 @@ add_filter('ss_admin_menu', function (array $menu): array {
     if ($user->can('scloud_manage_plans')) {
         $menu[] = ['name' => 'Planes', 'url' => url('/scloud/planes'), 'parent' => 'scloud'];
     }
-    if ($user->can('scloud_manage_servers')) {
-        $menu[] = ['name' => 'Servidores WHM', 'url' => url('/scloud/servidores'), 'parent' => 'scloud'];
-    }
     if ($user->can('scloud_manage_settings')) {
         $menu[] = ['name' => 'Ajustes', 'url' => url('/scloud/ajustes'), 'parent' => 'scloud'];
     }
@@ -60,6 +57,10 @@ add_filter('ss_admin_menu', function (array $menu): array {
 });
 
 add_action('plugins_loaded', function () {
+    // Este plugin es del panel principal: dentro de una instancia (cliente) nunca se carga, aunque se active.
+    if (class_exists(\SombrillaCloud\Support\Tenancy::class) && \SombrillaCloud\Support\Tenancy::inTenant()) {
+        return;
+    }
     if (!function_exists('sf_route') || !defined('ERP_FACTURACION_DIR') || !defined('ERP_CONTACTOS_DIR')) {
         return; // Requiere «Facturación (ERP)» y «Contactos»
     }

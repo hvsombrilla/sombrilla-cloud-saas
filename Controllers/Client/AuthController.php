@@ -57,7 +57,7 @@ class AuthController
             return scloud_back_with('/cliente/registro', $res['errors'], $request->all());
         }
         scloud_login($res['customer']);
-        flash('success', '¡Cuenta creada! Ya puedes contratar tu hosting.');
+        flash('success', '¡Cuenta creada! Ya puedes contratar tu instancia.');
 
         return redirect(url('/cliente'));
     }

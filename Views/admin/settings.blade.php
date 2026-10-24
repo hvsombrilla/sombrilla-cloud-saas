@@ -33,12 +33,18 @@
       <div class="sc-field"><label>Suspender N días después del vencimiento</label><input type="number" min="0" name="suspend_after_days" value="{{ $f('suspend_after_days') }}"><small>0 = nunca suspender automáticamente.</small></div><div class="sc-field"><label>Terminar N días después (suspendidos)</label><input type="number" min="0" name="terminate_after_days" value="{{ $f('terminate_after_days') }}"><small>0 = nunca (recomendado: manual).</small></div></div>
       <div class="sc-field"><label>Instrucciones de transferencia</label><textarea name="transfer_instructions">{{ $f('transfer_instructions') }}</textarea></div>
     </div>
-    <div class="sc-card"><h3>Aprovisionamiento</h3>
-      <label class="sc-check"><input type="checkbox" name="auto_provision" value="1" {{ $s['auto_provision'] === '1' || $s['auto_provision'] === 1 || $s['auto_provision'] === true ? 'checked' : '' }}> Crear la cuenta en WHM automáticamente al confirmar el pago</label>
-      <div class="sc-field"><label>Largo del usuario de cPanel</label><input type="number" min="5" max="16" name="username_length" value="{{ $f('username_length') }}"></div>
+    <div class="sc-card"><h3>Instancias y dominios (solo lectura)</h3>
+      <p class="sc-muted" style="margin-top:0">Se configuran en <code>ss-config.php</code> (claves <code>scloud.*</code>, ver <code>ss-config.scloud-sample.php</code>).</p>
+      <dl class="sc-kv">
+        <dt>Dominio base</dt><dd class="sc-mono">*.{{ $infra['base_domain'] }}</dd>
+        <dt>Secreto de instancias</dt><dd>{!! scloud_chip($infra['secret'] ? 'Configurado' : 'Falta scloud.tenant_secret', $infra['secret'] ? 'ok' : 'bad') !!}</dd>
+        <dt>Subdominios reservados</dt><dd>{{ $infra['banned'] }}</dd>
+        <dt>Dominio propio (CNAME)</dt><dd>{!! scloud_chip($infra['own'] ? 'Activado' : 'Desactivado', $infra['own'] ? 'ok' : '') !!}</dd>
+        <dt>Venta de dominios</dt><dd>@if(!$infra['domains_enabled']){!! scloud_chip('Desactivada', '') !!}@elseif($infra['cloudflare']){!! scloud_chip('Activa', 'ok') !!} margen {{ $infra['markup'] }}%@else{!! scloud_chip('Falta la API de Cloudflare', 'warn') !!}@endif</dd>
+      </dl>
     </div>
-    <div class="sc-card"><h3>Tarea diaria (renovaciones y suspensiones)</h3>
-      <p class="sc-muted">Programa este comando en el cron del servidor, una vez al día:</p>
+    <div class="sc-card"><h3>Tarea programada (dominios, renovaciones y suspensiones)</h3>
+      <p class="sc-muted">Programa este comando en el cron del servidor cada 10-15 minutos (avanza los dominios en curso; las renovaciones y suspensiones se calculan por día):</p>
       <input type="text" readonly value="curl -s &quot;{{ $cronUrl }}&quot; &gt; /dev/null" onclick="this.select()" class="sc-mono" style="width:100%">
       <p class="sc-muted" style="margin-bottom:0">Última ejecución: <strong>{{ $cronLast ?: 'nunca' }}</strong></p>
     </div>
@@ -47,7 +53,7 @@
   <div class="sc-actions"><button class="sc-btn">Guardar ajustes</button></div>
 </form>
 
-<form method="post" action="{{ url('/scloud/ajustes/cron') }}" style="margin:14px 0 26px" onsubmit="return confirm('¿Ejecutar ahora la tarea de renovaciones, suspensiones y terminaciones?')">{!! scloud_csrf() !!}<button class="sc-btn sc-btn--ghost">Ejecutar tarea diaria ahora</button></form>
+<form method="post" action="{{ url('/scloud/ajustes/cron') }}" style="margin:14px 0 26px" onsubmit="return confirm('¿Ejecutar ahora la tarea de renovaciones, suspensiones y terminaciones?')">{!! scloud_csrf() !!}<button class="sc-btn sc-btn--ghost">Ejecutar tarea ahora</button></form>
 
 <div id="bancos">
   <div class="sca-head"><h1 style="font-size:18px">Cuentas bancarias para transferencias</h1></div>

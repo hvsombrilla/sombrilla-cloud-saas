@@ -11,17 +11,11 @@ class Plan extends Model
 
     protected $casts = [
         'setup_fee'       => 'float',
-        'requires_domain' => 'boolean',
         'is_featured'     => 'boolean',
         'is_active'       => 'boolean',
         'is_hidden'       => 'boolean',
         'sort_order'      => 'integer',
     ];
-
-    public function server()
-    {
-        return $this->belongsTo(Server::class, 'server_id');
-    }
 
     public function scopeVisible($query)
     {

@@ -4,7 +4,9 @@ namespace SombrillaCloud\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use SombrillaCloud\Models\BankAccount;
+use SombrillaCloud\Services\Cloudflare;
 use SombrillaCloud\Services\CronService;
+use SombrillaCloud\Support\Tenancy;
 use SombrillaCloud\Support\Settings;
 use Studio\Models\SsOption;
 
@@ -17,6 +19,15 @@ class SettingsController
             'banks'   => BankAccount::orderBy('sort_order')->orderBy('id')->get(),
             'cronUrl' => url('/scloud/cron') . '?key=' . Settings::cronKey(),
             'cronLast' => SsOption::get('scloud_cron_last_run'),
+            'infra'   => [
+                'base_domain'     => Tenancy::baseDomain(),
+                'secret'          => strlen((string) Tenancy::cfg('tenant_secret', '')) >= 24,
+                'banned'          => count(Tenancy::banned()),
+                'own'             => (bool) Tenancy::cfg('domains.own_enabled', true),
+                'domains_enabled' => (bool) Tenancy::cfg('domains.enabled', true),
+                'cloudflare'      => Cloudflare::enabled(),
+                'markup'          => Cloudflare::markupPercent(),
+            ],
         ]);
     }
 
@@ -27,10 +38,9 @@ class SettingsController
             if ($key === 'cron_key' || !$request->has($key)) {
                 continue;
             }
-            $values[$key] = in_array($key, ['tax_rate', 'invoice_due_days', 'invoice_days_before', 'suspend_after_days', 'terminate_after_days', 'username_length'], true)
+            $values[$key] = in_array($key, ['tax_rate', 'invoice_due_days', 'invoice_days_before', 'suspend_after_days', 'terminate_after_days'], true)
                 ? max(0, (float) $request->input($key)) : (string) $request->input($key);
         }
-        $values['auto_provision'] = $request->input('auto_provision') ? '1' : '0';
         foreach (['support_email', 'mail_from_email', 'admin_notify_email'] as $k) {
             if (($values[$k] ?? '') !== '' && !filter_var($values[$k], FILTER_VALIDATE_EMAIL)) {
                 flash('error', 'El correo «' . $values[$k] . '» no es válido.');
@@ -78,7 +88,7 @@ class SettingsController
     public function runCron()
     {
         $stats = (new CronService())->run();
-        $msg   = "Tarea ejecutada: {$stats['invoices']} factura(s) de renovación, {$stats['suspended']} suspensión(es), {$stats['terminated']} terminación(es).";
+        $msg   = "Tarea ejecutada: {$stats['invoices']} factura(s) de renovación, {$stats['suspended']} suspensión(es), {$stats['terminated']} terminación(es), {$stats['domains']} dominio(s) revisado(s).";
         if ($stats['errors']) {
             flash('error', $msg . ' Errores: ' . implode(' · ', array_slice($stats['errors'], 0, 5)));
         } else {

@@ -14,7 +14,7 @@ final class Settings
     public const DEFAULTS = [
         // General
         'brand_name'           => 'Sombrilla Cloud',
-        'brand_tagline'        => 'Hosting rápido, seguro y con soporte local',
+        'brand_tagline'        => 'Tu instancia de Sombrilla Studio, lista en minutos',
         'support_email'        => '',
         'support_phone'        => '',
         'whatsapp'             => '',
@@ -23,9 +23,9 @@ final class Settings
         'terms_url'            => '',
         'privacy_url'          => '',
         // Portada
-        'hero_title'           => 'Hosting que no te deja bajo la lluvia',
-        'hero_subtitle'        => 'Planes cPanel con discos NVMe, SSL gratis, correos profesionales y soporte en español. Tu sitio activo en minutos.',
-        'hero_badge'           => 'Servidores optimizados · Uptime 99.9%',
+        'hero_title'           => 'Tu propio Sombrilla Studio, sin instalar nada',
+        'hero_subtitle'        => 'Tu propia instancia de Sombrilla Studio, con tu subdominio o tu dominio, lista en minutos y con soporte en español.',
+        'hero_badge'           => 'Instancia privada · Base de datos propia',
         // Facturación
         'tax_rate'             => 18,
         'tax_label'            => 'ITBIS',
@@ -34,9 +34,6 @@ final class Settings
         'suspend_after_days'   => 5,    // suspender N días después del vencimiento si sigue sin pagar
         'terminate_after_days' => 0,    // terminar N días después del vencimiento (0 = nunca, manual)
         'transfer_instructions' => 'Realiza la transferencia por el monto exacto de la factura e indica el número de factura en la descripción. Luego sube el comprobante desde tu panel para que validemos el pago.',
-        // Aprovisionamiento
-        'auto_provision'       => '1',  // crear la cuenta en WHM al confirmar el pago
-        'username_length'      => 8,
         // Seguridad / tareas
         'cron_key'             => '',
         // Correo

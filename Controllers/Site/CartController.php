@@ -4,12 +4,14 @@ namespace SombrillaCloud\Controllers\Site;
 
 use Illuminate\Http\Request;
 use SombrillaCloud\Models\Plan;
+use SombrillaCloud\Services\DomainService;
 use SombrillaCloud\Services\OrderService;
+use SombrillaCloud\Support\Tenancy;
 use SombrillaCloud\Support\Cart;
 
 class CartController
 {
-    /** Configurar un plan antes de agregarlo: ciclo y dominio. */
+    /** Configurar un plan antes de agregarlo: ciclo, nombre del workspace y dominio. */
     public function configure(Request $request, string $slug)
     {
         $plan = Plan::where('slug', $slug)->where('is_active', true)->first();
@@ -19,8 +21,10 @@ class CartController
         $cycle = (string) $request->query('ciclo', '');
 
         return scloud_view('site.configure', [
-            'plan'  => $plan,
-            'cycle' => $plan->price($cycle) !== null ? $cycle : $plan->defaultCycle(),
+            'plan'       => $plan,
+            'cycle'      => $plan->price($cycle) !== null ? $cycle : $plan->defaultCycle(),
+            'modes'      => DomainService::enabledModes(),
+            'baseDomain' => Tenancy::baseDomain(),
         ]);
     }
 
@@ -31,18 +35,25 @@ class CartController
         $back   = $plan ? '/contratar/' . $plan->slug : '/planes';
 
         $res = OrderService::validateItem([
-            'plan_id' => $planId, 'cycle' => (string) $request->input('cycle'), 'domain' => (string) $request->input('domain'),
+            'plan_id'   => $planId,
+            'cycle'     => (string) $request->input('cycle'),
+            'workspace' => (string) $request->input('workspace'),
+            'mode'      => (string) $request->input('mode', 'subdomain'),
+            'subdomain' => (string) $request->input('subdomain'),
+            'domain'    => (string) $request->input($request->input('mode') === 'buy' ? 'buy_domain' : 'own_domain'),
         ]);
         if (!$res['ok']) {
             return scloud_back_with($back, [$res['error']], $request->all());
         }
         foreach (Cart::items() as $item) {
-            if ($res['domain'] && ($item['domain'] ?? null) === $res['domain']) {
-                return scloud_back_with($back, ["El dominio {$res['domain']} ya está en tu carrito."], $request->all());
+            foreach (array_filter([$res['subdomain'], $res['domain']]) as $name) {
+                if (in_array($name, [$item['subdomain'] ?? null, $item['domain'] ?? null], true)) {
+                    return scloud_back_with($back, ["«{$name}» ya está en tu carrito."], $request->all());
+                }
             }
         }
 
-        Cart::add($planId, (string) $request->input('cycle'), $res['domain']);
+        Cart::add($planId, (string) $request->input('cycle'), $res);
 
         return redirect(url('/carrito'));
     }

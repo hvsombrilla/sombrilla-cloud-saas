@@ -47,7 +47,7 @@ class CheckoutController
             scloud_login($customer);
         }
 
-        $items = array_map(fn($i) => ['plan_id' => $i['plan_id'], 'cycle' => $i['cycle'], 'domain' => $i['domain']], $cart['items']);
+        $items = array_map(fn($i) => array_intersect_key($i, array_flip(['plan_id', 'cycle', 'mode', 'subdomain', 'domain', 'workspace'])), $cart['items']);
         $res   = OrderService::place($customer, $items, (string) $request->input('notes', ''), $request->ip());
         if (!$res['ok']) {
             return scloud_back_with('/checkout', $res['errors'], $request->all());

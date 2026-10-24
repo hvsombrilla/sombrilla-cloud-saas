@@ -140,16 +140,22 @@ final class Mailer
         }
     }
 
-    public static function accountCreated(Service $service): void
+    /** Bienvenida con los accesos de la instancia (o nuevos accesos si $reset). La contraseña solo viaja en este correo: no se guarda. */
+    public static function instanceReady(Service $service, string $password, bool $reset = false): bool
     {
-        self::send($service->customer->email, 'Tu hosting está listo: ' . $service->domain, 'account-created', [
-            'customer' => $service->customer, 'service' => $service, 'url' => url('/cliente/servicios/' . $service->id),
+        $service->loadMissing('customer', 'plan');
+        $subject = $reset ? 'Nuevos accesos a tu instancia: ' . $service->workspace_name : 'Tu instancia está lista: ' . $service->workspace_name;
+
+        return self::send($service->customer->email, $subject, 'account-created', [
+            'customer' => $service->customer, 'service' => $service, 'password' => $password, 'reset' => $reset,
+            'dns' => $service->domain_mode === 'own' && $service->subdomain ? \SombrillaCloud\Services\DomainService::dnsInstructions($service->subdomain, $service->domain) : null,
+            'url' => url('/cliente/servicios/' . $service->id),
         ]);
     }
 
     public static function serviceSuspended(Service $service): void
     {
-        self::send($service->customer->email, 'Servicio suspendido: ' . $service->domain, 'service-suspended', [
+        self::send($service->customer->email, 'Servicio suspendido: ' . ($service->host() ?: $service->title()), 'service-suspended', [
             'customer' => $service->customer, 'service' => $service, 'url' => url('/cliente/facturas'),
         ]);
     }

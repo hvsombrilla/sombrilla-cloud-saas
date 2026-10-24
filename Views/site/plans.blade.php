@@ -1,11 +1,11 @@
 @extends('scloud::site.layout')
-@section('title', 'Planes de hosting — ' . scloud_setting('brand_name'))
+@section('title', 'Planes — ' . scloud_setting('brand_name'))
 
 @section('content')
 <div class="sc-page">
   <div class="sc-wrap">
     <div class="sc-page-head sc-center">
-      <h1>Planes de hosting</h1>
+      <h1>Planes</h1>
       <p>Precios en {{ scloud_setting('currency_symbol') }}. Más ahorro mientras más largo el ciclo.</p>
       @if(count($cycles) > 1)
         <div class="sc-tabs" id="scTabs" style="margin-top:20px">

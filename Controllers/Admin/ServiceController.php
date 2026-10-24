@@ -4,11 +4,11 @@ namespace SombrillaCloud\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use SombrillaCloud\Models\Plan;
-use SombrillaCloud\Models\Server;
 use SombrillaCloud\Models\Service;
 use SombrillaCloud\Models\ServiceLog;
 use SombrillaCloud\Services\BillingService;
 use SombrillaCloud\Services\CronService;
+use SombrillaCloud\Services\DomainService;
 use SombrillaCloud\Services\Provisioner;
 use SombrillaCloud\Support\Cycles;
 use SombrillaCloud\Support\Mailer;
@@ -19,9 +19,9 @@ class ServiceController
     {
         $status = (string) $request->query('estado');
         $q      = trim((string) $request->query('q'));
-        $services = Service::with('plan', 'customer', 'server')
+        $services = Service::with('plan', 'customer')
             ->when(isset(Service::STATUSES[$status]), fn($x) => $x->where('status', $status))
-            ->when($q !== '', fn($x) => $x->where(fn($w) => $w->where('domain', 'like', "%{$q}%")->orWhere('username', 'like', "%{$q}%")
+            ->when($q !== '', fn($x) => $x->where(fn($w) => $w->where('domain', 'like', "%{$q}%")->orWhere('subdomain', 'like', "%{$q}%")->orWhere('workspace_name', 'like', "%{$q}%")
                 ->orWhereIn('customer_id', \SombrillaCloud\Models\Customer::where('name', 'like', "%{$q}%")->orWhere('email', 'like', "%{$q}%")->pluck('id'))))
             ->orderByDesc('id')->paginate(25)->appends($request->query());
 
@@ -30,12 +30,11 @@ class ServiceController
 
     public function show(int $id)
     {
-        $service = Service::with('plan', 'customer', 'server', 'order', 'logs')->findOrFail($id);
+        $service = Service::with('plan', 'customer', 'order', 'logs')->findOrFail($id);
 
         return scloud_view('admin.service', [
             'service' => $service,
             'plans'   => Plan::orderBy('name')->get(),
-            'servers' => Server::orderBy('name')->get(),
             'invoices' => \SombrillaCloud\Models\InvoiceLink::with('invoice')->where('service_id', $service->id)->orderByDesc('id')->get(),
         ]);
     }
@@ -52,10 +51,6 @@ class ServiceController
             'notes'            => trim((string) $request->input('notes')) ?: null,
             'cancel_requested' => (bool) $request->input('cancel_requested'),
         ]);
-        $domain = \SombrillaCloud\Services\OrderService::normalizeDomain((string) $request->input('domain'));
-        if ($domain && $domain !== $service->domain && !\SombrillaCloud\Services\OrderService::domainError($domain, $service->id)) {
-            $service->domain = $domain;
-        }
         $service->save();
         ServiceLog::write($service->id, 'updated', true, 'Datos del servicio editados.', $service->customer_id);
         flash('success', 'Servicio actualizado.');
@@ -63,10 +58,10 @@ class ServiceController
         return redirect(url('/scloud/servicios/' . $id));
     }
 
-    /** Acciones sobre la cuenta cPanel: create, suspend, unsuspend, terminate, package, password. */
+    /** Acciones sobre la instancia: create, suspend, unsuspend, terminate, reset (accesos), login (entrar como administrador), domain (verificar dominio). */
     public function action(Request $request, int $id)
     {
-        $service = Service::with('plan', 'customer', 'server')->findOrFail($id);
+        $service = Service::with('plan', 'customer')->findOrFail($id);
         @set_time_limit(300);
         $action = (string) $request->input('action');
 
@@ -75,15 +70,19 @@ class ServiceController
             'suspend'   => Provisioner::suspend($service, trim((string) $request->input('reason')) ?: 'Suspendido por el administrador'),
             'unsuspend' => Provisioner::unsuspend($service),
             'terminate' => Provisioner::terminate($service),
-            'package'   => ($pkg = trim((string) $request->input('package'))) !== ''
-                ? Provisioner::changePackage($service, $pkg) : ['ok' => false, 'error' => 'Indica el paquete.'],
-            'password'  => Provisioner::changePassword($service, Provisioner::password()),
+            'reset'     => Provisioner::resetAdminPassword($service),
+            'domain'    => (function () use ($service) { DomainService::sync($service); return ['ok' => true, 'error' => null]; })(),
+            'login'     => Provisioner::loginUrl($service),
             default     => ['ok' => false, 'error' => 'Acción desconocida.'],
         };
+        if ($res['ok'] && $action === 'login') {
+            ServiceLog::write($service->id, 'staff_login', true, 'Acceso de soporte a la instancia como administrador.', $service->customer_id);
+            return redirect($res['url']);
+        }
         if ($res['ok'] && $action === 'suspend') {
             Mailer::serviceSuspended($service->fresh(['customer']));
         }
-        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? 'Acción completada.' : $res['error']);
+        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? ($action === 'reset' ? 'Contraseña restablecida' . (!empty($res['sent']) ? ' y enviada al cliente.' : ', pero el correo no pudo enviarse.') : 'Acción completada.') : $res['error']);
 
         return redirect(url('/scloud/servicios/' . $id));
     }
@@ -106,7 +105,7 @@ class ServiceController
         $to  = Cycles::addTo($from, $service->billing_cycle);
         $res = BillingService::createInvoice($service->customer, [[
             'product_id'  => $service->plan->product_id ?? null,
-            'description' => 'Renovación hosting ' . ($service->plan->name ?? '') . ($service->domain ? " — {$service->domain}" : '')
+            'description' => 'Renovación instancia ' . ($service->plan->name ?? '') . ($service->host() ? " — {$service->host()}" : '')
                 . ' · ' . $service->cycleLabel() . ' (' . $service->next_due_date->format('d/m/Y') . ' - ' . $to->format('d/m/Y') . ')',
             'quantity'    => 1,
             'unit_price'  => $service->amount,

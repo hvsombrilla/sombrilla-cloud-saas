@@ -9,7 +9,7 @@
     <tbody>
       @forelse($services as $s)
         <tr>
-          <td><strong>{{ $s->plan->name ?? 'Plan' }}</strong><div class="sc-muted">{{ $s->domain ?: '—' }}</div></td>
+          <td><strong>{{ $s->plan->name ?? 'Plan' }}</strong><div class="sc-muted">{{ $s->workspace_name }}@if($s->host()) · {{ $s->host() }}@endif</div></td>
           <td>{{ $s->cycleLabel() }}</td><td>{{ scloud_money($s->amount) }}</td><td>{{ scloud_date($s->next_due_date) }}</td>
           <td>{!! scloud_chip($s->statusLabel(), $s->statusTone()) !!}@if($s->cancel_requested) {!! scloud_chip('Cancelación solicitada', 'warn') !!}@endif</td>
           <td class="sc-right"><a class="sc-btn sc-btn--ghost sc-btn--sm" href="{{ url('/cliente/servicios/' . $s->id) }}">Administrar</a></td>

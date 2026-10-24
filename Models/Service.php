@@ -3,14 +3,11 @@
 namespace SombrillaCloud\Models;
 
 use SombrillaCloud\Support\Cycles;
-use Studio\AI\Secret;
 use Studio\Models\Model;
 
 class Service extends Model
 {
     protected $table = 'scloud_services';
-
-    protected $hidden = ['password'];
 
     public const STATUSES = [
         'pending'    => ['Pendiente', 'warn'],
@@ -23,6 +20,10 @@ class Service extends Model
 
     protected $casts = [
         'amount'            => 'float',
+        'domain_price'      => 'float',
+        'domain_cost_usd'   => 'float',
+        'domain_expires_at' => 'date',
+        'provisioned_at'    => 'datetime',
         'registration_date' => 'date',
         'next_due_date'     => 'date',
         'cancel_requested'  => 'boolean',
@@ -38,11 +39,6 @@ class Service extends Model
         return $this->belongsTo(Plan::class, 'plan_id');
     }
 
-    public function server()
-    {
-        return $this->belongsTo(Server::class, 'server_id');
-    }
-
     public function order()
     {
         return $this->belongsTo(Order::class, 'order_id');
@@ -53,14 +49,44 @@ class Service extends Model
         return $this->hasMany(ServiceLog::class, 'service_id')->orderByDesc('id');
     }
 
-    public function plainPassword(): string
+    public const DOMAIN_STATUSES = [
+        'registering' => ['Registrando dominio', 'warn'],
+        'dns_pending' => ['Esperando DNS', 'warn'],
+        'connected'   => ['Conectado', 'ok'],
+        'failed'      => ['Error con el dominio', 'bad'],
+    ];
+
+    public const DOMAIN_MODES = ['subdomain' => 'Subdominio', 'buy' => 'Dominio comprado', 'own' => 'Dominio propio'];
+
+    /** Host canónico de la instancia: {subdominio}.sombrilla.cloud. */
+    public function host(): ?string
     {
-        return Secret::decrypt($this->password);
+        return $this->subdomain ? \SombrillaCloud\Support\Tenancy::host($this->subdomain) : null;
     }
 
-    public function setPlainPassword(string $password): void
+    /** URL pública de la instancia (el dominio propio si ya está conectado; si no, el subdominio). */
+    public function publicUrl(): ?string
     {
-        $this->password = $password === '' ? null : Secret::encrypt($password);
+        if ($this->domain && $this->domain_status === 'connected') {
+            return 'https://' . $this->domain;
+        }
+
+        return $this->subdomain ? \SombrillaCloud\Support\Tenancy::url($this->subdomain) : null;
+    }
+
+    public function domainStatusLabel(): string
+    {
+        return self::DOMAIN_STATUSES[$this->domain_status][0] ?? '';
+    }
+
+    public function domainStatusTone(): string
+    {
+        return self::DOMAIN_STATUSES[$this->domain_status][1] ?? '';
+    }
+
+    public function modeLabel(): string
+    {
+        return self::DOMAIN_MODES[$this->domain_mode] ?? 'Subdominio';
     }
 
     public function statusLabel(): string
@@ -78,10 +104,10 @@ class Service extends Model
         return Cycles::label($this->billing_cycle);
     }
 
-    /** Nombre para listados: "Plan Pro — midominio.com". */
+    /** Nombre para listados: "Plan Pro — acme.sombrilla.cloud". */
     public function title(): string
     {
-        return trim(($this->plan->name ?? 'Servicio') . ($this->domain ? ' — ' . $this->domain : ''));
+        return trim(($this->plan->name ?? 'Servicio') . ($this->host() ? ' — ' . $this->host() : ($this->domain ? ' — ' . $this->domain : '')));
     }
 
     public function isLive(): bool

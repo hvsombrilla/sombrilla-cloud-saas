@@ -28,7 +28,7 @@ class OrderController
 
     public function show(int $id)
     {
-        $order = Order::with('customer', 'services.plan', 'services.server')->findOrFail($id);
+        $order = Order::with('customer', 'services.plan')->findOrFail($id);
 
         return scloud_view('admin.order', [
             'order'   => $order,
@@ -62,7 +62,7 @@ class OrderController
         return redirect(url('/scloud/pedidos/' . $id));
     }
 
-    /** Reintenta crear en WHM las cuentas de un pedido pagado (o con error). */
+    /** Reintenta crear las instancias de un pedido pagado (o con error). */
     public function activate(int $id)
     {
         $order = Order::findOrFail($id);
@@ -81,7 +81,7 @@ class OrderController
         if (!$errors) {
             $order->update(['status' => 'active']);
             ServiceLog::write(null, 'order_activated', true, "Pedido {$order->code} activado manualmente.", $order->customer_id);
-            flash('success', 'Cuentas creadas en WHM.');
+            flash('success', 'Instancias creadas.');
         } else {
             flash('error', implode(' · ', $errors));
         }

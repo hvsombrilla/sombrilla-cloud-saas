@@ -2,103 +2,126 @@
 
 namespace SombrillaCloud\Services;
 
-use SombrillaCloud\Models\Server;
+use Studio\Auth\SignedLogin;
 use SombrillaCloud\Models\Service;
 use SombrillaCloud\Models\ServiceLog;
 use SombrillaCloud\Support\Mailer;
-use SombrillaCloud\Support\Settings;
+use SombrillaCloud\Support\Tenancy;
 
 /**
- * Acciones sobre la cuenta cPanel de un servicio. Cada método devuelve ['ok' => bool, 'error' => ?string]
+ * Ciclo de vida de una instancia de Sombrilla Studio. Cada método devuelve ['ok' => bool, 'error' => ?string]
  * y deja constancia en scloud_logs; nunca lanza excepciones.
  */
 class Provisioner
 {
-    /** Crea la cuenta en WHM con el paquete del plan. */
+    /** Crea la instancia (SQLite + storage + administrador) y, si aplica, conecta o compra el dominio. */
     public static function create(Service $service, bool $notify = true): array
     {
         $service->loadMissing('plan', 'customer');
 
-        if ($service->status === 'active' && $service->username) {
+        if ($service->status === 'active' && $service->provisioned_at) {
             return ['ok' => false, 'error' => 'El servicio ya está activo.'];
         }
-
-        $server = $service->server ?: self::pickServer($service->plan?->server_id);
-        if (!$server) {
-            return self::fail($service, 'create', 'No hay un servidor WHM activo con capacidad disponible.');
+        $customer = $service->customer;
+        if (!$customer) {
+            return self::fail($service, 'create', 'El servicio no tiene cliente.');
         }
-        $package = $service->whm_package ?: ($service->plan->whm_package ?? '');
-        if ($package === '') {
-            return self::fail($service, 'create', 'El plan no tiene un paquete de WHM asignado.');
-        }
-        if (!$service->domain) {
-            return self::fail($service, 'create', 'El servicio no tiene dominio.');
+        if (trim((string) $service->workspace_name) === '') {
+            return self::fail($service, 'create', 'El servicio no tiene nombre de workspace.');
         }
 
-        $whm      = Whm::for($server);
-        $password = $service->plainPassword() ?: self::password();
-        $username = $service->username ?: self::username((string) $service->domain);
-        $lastError = '';
-
-        // Si el usuario ya existe en WHM se reintenta con otro.
-        for ($attempt = 0; $attempt < 3; $attempt++) {
-            try {
-                $whm->createAccount($username, (string) $service->domain, $password, $package, (string) $service->customer->email);
-                $lastError = '';
-                break;
-            } catch (WhmException $e) {
-                $lastError = $e->getMessage();
-                if (!preg_match('/(user|usuario|username).*(exist|taken|reserved|in use)|exist.*(user|usuario)/i', $lastError)) {
-                    break;
-                }
-                $username = self::username((string) $service->domain, true);
+        try {
+            Tenancy::secret();
+            $slug = $service->subdomain ?: DomainService::generateSlug((string) $service->workspace_name);
+            if ($error = DomainService::subdomainError($slug, $service->id)) {
+                return self::fail($service, 'create', $error);
             }
+        } catch (\Throwable $e) {
+            return self::fail($service, 'create', $e->getMessage());
         }
 
-        if ($lastError !== '') {
-            $service->server_id = $server->id;
-            $service->save();
+        $password = self::password();
+        $email    = strtolower((string) $customer->email);
+        try {
+            TenantDb::create($slug, (string) $service->workspace_name, (string) $customer->name, $email, $password);
+        } catch (\Throwable $e) {
+            TenantDb::destroy($slug);
 
-            return self::fail($service, 'create', $lastError);
+            return self::fail($service, 'create', 'No se pudo crear la instancia: ' . $e->getMessage());
         }
 
         $service->fill([
-            'server_id'   => $server->id,
-            'username'    => $username,
-            'whm_package' => $package,
-            'status'      => 'active',
-            'last_error'  => null,
+            'subdomain'      => $slug,
+            'admin_email'    => $email,
+            'status'         => 'active',
+            'last_error'     => null,
+            'provisioned_at' => now(),
         ]);
-        $service->setPlainPassword($password);
         if (!$service->registration_date) {
             $service->registration_date = date('Y-m-d');
         }
         $service->save();
+        ServiceLog::write($service->id, 'create', true, 'Instancia ' . Tenancy::host($slug) . ' creada. Administrador: ' . $email . '.', $service->customer_id);
 
-        ServiceLog::write($service->id, 'create', true, "Cuenta {$username} creada en {$server->name} con el paquete {$package}.", $service->customer_id);
+        self::connectDomain($service);
         do_action('scloud_service_created', ['service_id' => $service->id]);
 
         if ($notify) {
-            Mailer::accountCreated($service->fresh(['plan', 'customer', 'server']));
+            $sent = Mailer::instanceReady($service->fresh(['plan', 'customer']), $password);
+            if (!$sent) {
+                ServiceLog::write($service->id, 'welcome_mail', false, 'No se pudo enviar el correo de bienvenida. Usa «Restablecer acceso» para generar y enviar una contraseña nueva.', $service->customer_id);
+            }
         }
 
-        return ['ok' => true, 'error' => null];
+        return ['ok' => true, 'error' => null, 'password' => $password];
+    }
+
+    /** Dominio propio: se registra el mapeo y se espera el CNAME. Dominio comprado: se registra en Cloudflare y se apunta el DNS. */
+    private static function connectDomain(Service $service): void
+    {
+        if (!$service->domain || $service->domain_mode === 'subdomain') {
+            return;
+        }
+        Tenancy::mapDomain($service->domain, $service->subdomain);
+
+        if ($service->domain_mode === 'own') {
+            $service->update(['domain_status' => 'dns_pending']);
+            DomainService::sync($service);
+
+            return;
+        }
+
+        if (!Cloudflare::enabled()) {
+            $service->update(['domain_status' => 'failed']);
+            DomainService::alert($service, "No se puede comprar {$service->domain}: la venta de dominios está desactivada o sin configurar. La instancia funciona en " . Tenancy::host($service->subdomain) . '.');
+
+            return;
+        }
+        try {
+            $check = Cloudflare::checkOne($service->domain);
+            if (!$check || !$check['registrable']) {
+                throw new CloudflareException('El dominio ya no está disponible.');
+            }
+            $reg = Cloudflare::register($service->domain);
+            $service->update([
+                'domain_status'   => $reg['completed'] ? 'dns_pending' : 'registering',
+                'domain_cost_usd' => $check['cost'],
+            ]);
+            ServiceLog::write($service->id, 'domain_register', true, "Registro de {$service->domain} solicitado a Cloudflare (estado: {$reg['state']}).", $service->customer_id);
+            DomainService::sync($service->fresh());
+        } catch (CloudflareException $e) {
+            $service->update(['domain_status' => 'failed']);
+            DomainService::alert($service, "No se pudo comprar {$service->domain}: " . $e->getMessage() . ' La instancia funciona en ' . Tenancy::host($service->subdomain) . '.');
+        }
     }
 
     public static function suspend(Service $service, string $reason = ''): array
     {
-        if (!$service->username || !$service->server) {
-            $service->update(['status' => 'suspended', 'suspend_reason' => $reason ?: null]);
-
-            return ['ok' => true, 'error' => null];
-        }
-        try {
-            Whm::for($service->server)->suspend($service->username, $reason);
-        } catch (WhmException $e) {
-            return self::fail($service, 'suspend', $e->getMessage(), false);
+        if ($service->subdomain) {
+            Tenancy::setSuspended($service->subdomain, true);
         }
         $service->update(['status' => 'suspended', 'suspend_reason' => $reason ?: null]);
-        ServiceLog::write($service->id, 'suspend', true, 'Cuenta suspendida' . ($reason ? ": {$reason}" : '.'), $service->customer_id);
+        ServiceLog::write($service->id, 'suspend', true, 'Instancia suspendida' . ($reason ? ": {$reason}" : '.'), $service->customer_id);
         do_action('scloud_service_suspended', ['service_id' => $service->id, 'reason' => $reason]);
 
         return ['ok' => true, 'error' => null];
@@ -106,125 +129,69 @@ class Provisioner
 
     public static function unsuspend(Service $service): array
     {
-        if ($service->username && $service->server) {
-            try {
-                Whm::for($service->server)->unsuspend($service->username);
-            } catch (WhmException $e) {
-                return self::fail($service, 'unsuspend', $e->getMessage(), false);
-            }
+        if ($service->subdomain) {
+            Tenancy::setSuspended($service->subdomain, false);
         }
         $service->update(['status' => 'active', 'suspend_reason' => null]);
-        ServiceLog::write($service->id, 'unsuspend', true, 'Cuenta reactivada.', $service->customer_id);
+        ServiceLog::write($service->id, 'unsuspend', true, 'Instancia reactivada.', $service->customer_id);
 
         return ['ok' => true, 'error' => null];
     }
 
+    /** Archiva la instancia en storage/trash (recuperable a mano) y libera el subdominio y el dominio. */
     public static function terminate(Service $service): array
     {
-        if ($service->username && $service->server) {
-            try {
-                Whm::for($service->server)->terminate($service->username);
-            } catch (WhmException $e) {
-                return self::fail($service, 'terminate', $e->getMessage(), false);
-            }
+        if ($service->subdomain && Tenancy::exists($service->subdomain) && !TenantDb::archive($service->subdomain)) {
+            return self::fail($service, 'terminate', 'No se pudo archivar la instancia (permisos de storage).', false);
+        }
+        if ($service->domain) {
+            Tenancy::unmapDomain($service->domain);
         }
         $service->update(['status' => 'terminated']);
-        ServiceLog::write($service->id, 'terminate', true, 'Cuenta eliminada del servidor.', $service->customer_id);
+        ServiceLog::write($service->id, 'terminate', true, 'Instancia archivada en storage/trash.', $service->customer_id);
 
         return ['ok' => true, 'error' => null];
     }
 
-    public static function changePackage(Service $service, string $package): array
+    /** Nueva contraseña para el administrador de la instancia; se envía por correo al cliente (no se guarda). */
+    public static function resetAdminPassword(Service $service): array
     {
-        if (!$service->username || !$service->server) {
-            return ['ok' => false, 'error' => 'El servicio no tiene una cuenta creada.'];
+        $service->loadMissing('customer', 'plan');
+        if (!$service->subdomain || !$service->admin_email || !Tenancy::exists($service->subdomain)) {
+            return ['ok' => false, 'error' => 'El servicio no tiene una instancia creada.'];
         }
+        $password = self::password();
         try {
-            Whm::for($service->server)->changePackage($service->username, $package);
-        } catch (WhmException $e) {
-            return self::fail($service, 'change_package', $e->getMessage(), false);
-        }
-        $service->update(['whm_package' => $package]);
-        ServiceLog::write($service->id, 'change_package', true, "Paquete cambiado a {$package}.", $service->customer_id);
-
-        return ['ok' => true, 'error' => null];
-    }
-
-    public static function changePassword(Service $service, string $password): array
-    {
-        if (!$service->username || !$service->server) {
-            return ['ok' => false, 'error' => 'El servicio no tiene una cuenta creada.'];
-        }
-        try {
-            Whm::for($service->server)->changePassword($service->username, $password);
-        } catch (WhmException $e) {
-            return self::fail($service, 'change_password', $e->getMessage(), false);
-        }
-        $service->setPlainPassword($password);
-        $service->save();
-        ServiceLog::write($service->id, 'change_password', true, 'Contraseña de cPanel cambiada.', $service->customer_id);
-
-        return ['ok' => true, 'error' => null];
-    }
-
-    /** URL de inicio de sesión directo en cPanel. */
-    public static function cpanelUrl(Service $service): array
-    {
-        if ($service->status !== 'active' || !$service->username || !$service->server) {
-            return ['ok' => false, 'error' => 'La cuenta no está activa.', 'url' => null];
-        }
-        try {
-            return ['ok' => true, 'error' => null, 'url' => Whm::for($service->server)->cpanelSession($service->username)];
-        } catch (WhmException $e) {
-            ServiceLog::write($service->id, 'cpanel_login', false, $e->getMessage(), $service->customer_id);
-
-            return ['ok' => false, 'error' => 'No se pudo abrir cPanel en este momento.', 'url' => null];
-        }
-    }
-
-    /** Servidor del plan si está activo y con espacio; si no, el activo con menos cuentas. */
-    public static function pickServer(?int $preferredId = null): ?Server
-    {
-        if ($preferredId) {
-            $server = Server::where('id', $preferredId)->where('is_active', true)->first();
-            if ($server && !$server->isFull()) {
-                return $server;
+            if (!TenantDb::setAdminPassword($service->subdomain, $service->admin_email, $password)) {
+                return self::fail($service, 'reset_access', 'No se encontró el usuario administrador en la instancia.', false);
             }
+        } catch (\Throwable $e) {
+            return self::fail($service, 'reset_access', $e->getMessage(), false);
         }
+        $sent = Mailer::instanceReady($service, $password, true);
+        ServiceLog::write($service->id, 'reset_access', true, 'Contraseña del administrador restablecida' . ($sent ? ' y enviada al cliente.' : ' (el correo no pudo enviarse).'), $service->customer_id);
 
-        return Server::where('is_active', true)->get()
-            ->reject(fn(Server $s) => $s->isFull() || !$s->hasToken())
-            ->sortBy(fn(Server $s) => $s->accountCount())
-            ->first();
+        return ['ok' => true, 'error' => null, 'password' => $password, 'sent' => $sent];
     }
 
-    /** Usuario de cPanel a partir del dominio: empieza por letra, solo [a-z0-9], único en la base de datos. */
-    public static function username(string $domain, bool $random = false): string
+    /** URL que abre la instancia ya autenticada como su administrador (token firmado de un solo uso, 60 s). */
+    public static function loginUrl(Service $service): array
     {
-        $len  = max(5, min(16, Settings::int('username_length') ?: 8));
-        $base = preg_replace('/[^a-z0-9]/', '', strtolower(explode('.', preg_replace('/^www\./i', '', $domain))[0] ?? ''));
-        $base = ltrim((string) $base, '0123456789');
-        if (str_starts_with($base, 'test')) {
-            $base = 'u' . $base; // WHM reserva los usuarios que empiezan por "test"
+        if ($service->status !== 'active' || !$service->subdomain || !$service->admin_email) {
+            return ['ok' => false, 'error' => 'La instancia no está activa.', 'url' => null];
         }
-        if ($base === '') {
-            $base = 'sc';
+        if (!class_exists(SignedLogin::class) || !SignedLogin::enabled()) {
+            return ['ok' => false, 'error' => 'El acceso directo no está configurado (scloud.tenant_secret).', 'url' => null];
         }
+        $token = SignedLogin::make($service->admin_email, Tenancy::host($service->subdomain), 60);
 
-        $candidate = $random ? substr($base, 0, $len - 3) . random_int(100, 999) : substr($base, 0, $len);
-        $i = 1;
-        while (Service::where('username', $candidate)->exists()) {
-            $suffix    = (string) $i++;
-            $candidate = substr($base, 0, $len - strlen($suffix)) . $suffix;
-        }
-
-        return $candidate;
+        return ['ok' => true, 'error' => null, 'url' => Tenancy::url($service->subdomain) . '/studio/sso?t=' . $token];
     }
 
-    /** Contraseña fuerte (WHM exige una puntuación mínima). */
+    /** Contraseña fuerte, legible (sin caracteres ambiguos). */
     public static function password(int $length = 16): string
     {
-        $sets = ['abcdefghjkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789', '!@#%^*-_=+'];
+        $sets  = ['abcdefghjkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789', '!@#%^*-_=+'];
         $chars = [];
         foreach ($sets as $set) {
             $chars[] = $set[random_int(0, strlen($set) - 1)];
@@ -233,7 +200,10 @@ class Provisioner
         while (count($chars) < $length) {
             $chars[] = $all[random_int(0, strlen($all) - 1)];
         }
-        shuffle($chars);
+        for ($i = count($chars) - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            [$chars[$i], $chars[$j]] = [$chars[$j], $chars[$i]];
+        }
 
         return implode('', $chars);
     }
@@ -251,9 +221,9 @@ class Provisioner
 
         if (function_exists('ss_notify')) {
             try {
-                ss_notify('permission:scloud_manage_services', 'Error en WHM: ' . $service->title(), [
+                ss_notify('permission:scloud_manage_services', 'Error con la instancia: ' . $service->title(), [
                     'type' => 'error', 'body' => $error, 'url' => url('/scloud/servicios/' . $service->id),
-                    'icon' => 'fa fa-server', 'source' => 'sombrilla-cloud',
+                    'icon' => 'ph ph-cloud-warning', 'source' => 'sombrilla-cloud',
                 ]);
             } catch (\Throwable) {
             }

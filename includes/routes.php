@@ -15,6 +15,8 @@ Route::group(['middleware' => ['scloud-csrf', 'offline:none']], function () use 
     Route::get('/contratar/{slug}', ['uses' => $site . 'CartController@configure'])->where('slug', '[a-z0-9-]+');
     Route::get('/carrito', ['uses' => $site . 'CartController@index']);
     Route::post('/carrito', ['uses' => $site . 'CartController@add']);
+    Route::get('/dominio/subdominio', ['uses' => $site . 'DomainController@subdomain']);
+    Route::get('/dominio/buscar', ['uses' => $site . 'DomainController@search']);
     Route::post('/carrito/{key}/quitar', ['uses' => $site . 'CartController@remove'])->where('key', '[a-f0-9]+');
     Route::get('/checkout', ['uses' => $site . 'CheckoutController@show']);
     Route::post('/checkout', ['uses' => $site . 'CheckoutController@place']);
@@ -43,8 +45,8 @@ Route::group(['middleware' => ['scloud-csrf', 'scloud-customer', 'offline:none']
     $s = $client . 'ServiceController';
     Route::get('/cliente/servicios', ['uses' => "$s@index"]);
     Route::get('/cliente/servicios/{id}', ['uses' => "$s@show"])->where($id);
-    Route::post('/cliente/servicios/{id}/cpanel', ['uses' => "$s@cpanel"])->where($id);
-    Route::post('/cliente/servicios/{id}/password', ['uses' => "$s@password"])->where($id);
+    Route::post('/cliente/servicios/{id}/abrir', ['uses' => "$s@open"])->where($id);
+    Route::post('/cliente/servicios/{id}/dominio/verificar', ['uses' => "$s@verifyDomain"])->where($id);
     Route::post('/cliente/servicios/{id}/cancelar', ['uses' => "$s@cancel"])->where($id);
 
     $i = $client . 'InvoiceController';
@@ -113,16 +115,6 @@ Route::group(['middleware' => ['auth', 'scloud-csrf']], function () use ($admin,
     Route::get('/scloud/planes/{id}', ['uses' => "$pl@edit"])->where($id)->middleware('permission:scloud_manage_plans');
     Route::post('/scloud/planes/{id}', ['uses' => "$pl@update"])->where($id)->middleware('permission:scloud_manage_plans');
     Route::post('/scloud/planes/{id}/eliminar', ['uses' => "$pl@destroy"])->where($id)->middleware('permission:scloud_manage_plans');
-
-    $sv = $admin . 'ServerController';
-    Route::get('/scloud/servidores', ['uses' => "$sv@index"])->middleware('permission:scloud_manage_servers');
-    Route::get('/scloud/servidores/nuevo', ['uses' => "$sv@create"])->middleware('permission:scloud_manage_servers');
-    Route::post('/scloud/servidores', ['uses' => "$sv@store"])->middleware('permission:scloud_manage_servers');
-    Route::get('/scloud/servidores/{id}', ['uses' => "$sv@edit"])->where($id)->middleware('permission:scloud_manage_servers');
-    Route::post('/scloud/servidores/{id}', ['uses' => "$sv@update"])->where($id)->middleware('permission:scloud_manage_servers');
-    Route::post('/scloud/servidores/{id}/probar', ['uses' => "$sv@test"])->where($id)->middleware('permission:scloud_manage_servers');
-    Route::post('/scloud/servidores/{id}/eliminar', ['uses' => "$sv@destroy"])->where($id)->middleware('permission:scloud_manage_servers');
-    Route::get('/scloud/servidores/{id}/paquetes', ['uses' => "$sv@packages"])->where($id)->middleware('permission:scloud_manage_plans,scloud_manage_servers');
 
     $st = $admin . 'SettingsController';
     Route::get('/scloud/ajustes', ['uses' => "$st@index"])->middleware('permission:scloud_manage_settings');

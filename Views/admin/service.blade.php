@@ -10,29 +10,30 @@
 
 <div class="sc-cols-21">
 <div>
-  <div class="sc-card"><h3>Cuenta cPanel</h3>
-    <dl class="sc-kv"><dt>Usuario</dt><dd class="sc-mono">{{ $service->username ?: '—' }}</dd><dt>Contraseña</dt><dd class="sc-mono">{{ $service->password ? $service->plainPassword() : '—' }}</dd>
-      <dt>Servidor</dt><dd>{{ $service->server->name ?? '—' }}</dd><dt>Paquete WHM</dt><dd>{{ $service->whm_package ?: '—' }}</dd><dt>Pedido</dt><dd>@if($service->order)<a href="{{ url('/scloud/pedidos/' . $service->order_id) }}">{{ $service->order->code }}</a>@else — @endif</dd></dl>
+  <div class="sc-card"><h3>Instancia</h3>
+    <dl class="sc-kv"><dt>Workspace</dt><dd>{{ $service->workspace_name ?: '—' }}</dd>
+      <dt>Dirección</dt><dd>@if($service->subdomain)<a href="{{ \SombrillaCloud\Support\Tenancy::url($service->subdomain) }}" target="_blank" rel="noopener">{{ $service->host() }}</a>@else — @endif</dd>
+      <dt>Administrador</dt><dd>{{ $service->admin_email ?: '—' }}</dd>
+      <dt>Dominio</dt><dd>@if($service->domain){{ $service->domain }} · {{ $service->modeLabel() }} {!! scloud_chip($service->domainStatusLabel(), $service->domainStatusTone()) !!}@if($service->domain_price > 0)<div class="sc-muted">Cobrado {{ scloud_money($service->domain_price) }}@if($service->domain_cost_usd) · costo US$ {{ number_format($service->domain_cost_usd, 2) }}@endif @if($service->domain_expires_at)· vence {{ scloud_date($service->domain_expires_at) }}@endif</div>@endif @else <span class="sc-muted">Solo subdominio</span>@endif</dd>
+      <dt>Pedido</dt><dd>@if($service->order)<a href="{{ url('/scloud/pedidos/' . $service->order_id) }}">{{ $service->order->code }}</a>@else — @endif</dd></dl>
     <hr style="border:0;border-top:1px solid var(--border);margin:14px 0">
     <div class="sc-actions">
-      @if(in_array($service->status, ['pending', 'failed'], true))<form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}">{!! scloud_csrf() !!}<input type="hidden" name="action" value="create"><button class="sc-btn sc-btn--ok">Crear cuenta en WHM</button></form>@endif
+      @if(in_array($service->status, ['pending', 'failed'], true))<form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}">{!! scloud_csrf() !!}<input type="hidden" name="action" value="create"><button class="sc-btn sc-btn--ok">Crear instancia</button></form>@endif
+      @if($service->status === 'active')<form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" target="_blank">{!! scloud_csrf() !!}<input type="hidden" name="action" value="login"><button class="sc-btn">Entrar como administrador</button></form>@endif
       @if($service->status === 'active')<form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" class="sc-actions">{!! scloud_csrf() !!}<input type="hidden" name="action" value="suspend"><input type="text" name="reason" placeholder="Motivo (opcional)" style="width:200px"><button class="sc-btn sc-btn--danger">Suspender</button></form>@endif
       @if($service->status === 'suspended')<form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}">{!! scloud_csrf() !!}<input type="hidden" name="action" value="unsuspend"><button class="sc-btn sc-btn--ok">Reactivar</button></form>@endif
       @if($service->isLive())
-        <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" onsubmit="return confirm('¿Generar una contraseña nueva? El cliente deberá recibirla por ticket o correo.')">{!! scloud_csrf() !!}<input type="hidden" name="action" value="password"><button class="sc-btn sc-btn--ghost">Nueva contraseña</button></form>
-        <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" onsubmit="return confirm('¿ELIMINAR la cuenta del servidor? Se pierden todos sus datos.')">{!! scloud_csrf() !!}<input type="hidden" name="action" value="terminate"><button class="sc-btn sc-btn--danger sc-btn--sm">Terminar cuenta</button></form>
+        <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" onsubmit="return confirm('¿Generar una contraseña nueva para el administrador y enviarla por correo al cliente?')">{!! scloud_csrf() !!}<input type="hidden" name="action" value="reset"><button class="sc-btn sc-btn--ghost">Restablecer acceso</button></form>
+        @if(in_array($service->domain_status, ['registering', 'dns_pending'], true))<form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}">{!! scloud_csrf() !!}<input type="hidden" name="action" value="domain"><button class="sc-btn sc-btn--ghost">Verificar dominio</button></form>@endif
+        <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" onsubmit="return confirm('¿ARCHIVAR la instancia? Deja de estar disponible. Sus datos se mueven a storage/trash y se pueden recuperar a mano.')">{!! scloud_csrf() !!}<input type="hidden" name="action" value="terminate"><button class="sc-btn sc-btn--danger sc-btn--sm">Archivar instancia</button></form>
       @endif
     </div>
-    @if($service->isLive())
-    <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" class="sc-actions" style="margin-top:12px">{!! scloud_csrf() !!}<input type="hidden" name="action" value="package"><input type="text" name="package" value="{{ $service->whm_package }}" placeholder="Paquete de WHM" style="width:220px"><button class="sc-btn sc-btn--ghost sc-btn--sm">Cambiar paquete</button></form>
-    @endif
   </div>
 
   <div class="sc-card"><h3>Facturación</h3>
     <form method="post" action="{{ url('/scloud/servicios/' . $service->id) }}">
       {!! scloud_csrf() !!}
       <div class="sc-grid3">
-        <div class="sc-field"><label>Dominio</label><input type="text" name="domain" value="{{ $service->domain }}"></div>
         <div class="sc-field"><label>Ciclo</label><select name="billing_cycle">@foreach(\SombrillaCloud\Support\Cycles::ALL as $k => [$l])<option value="{{ $k }}" {{ $service->billing_cycle === $k ? 'selected' : '' }}>{{ $l }}</option>@endforeach</select></div>
         <div class="sc-field"><label>Importe (sin impuestos)</label><input type="number" step="0.01" name="amount" value="{{ number_format($service->amount, 2, '.', '') }}"></div>
         <div class="sc-field"><label>Próximo vencimiento</label><input type="date" name="next_due_date" value="{{ $service->next_due_date ? $service->next_due_date->format('Y-m-d') : '' }}"></div>

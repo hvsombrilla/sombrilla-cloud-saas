@@ -62,7 +62,7 @@
       </div>
       <div>
         <h4>Producto</h4>
-        <ul><li><a href="{{ url('/planes') }}">Planes de hosting</a></li><li><a href="{{ url('/carrito') }}">Carrito</a></li><li><a href="{{ url('/contacto') }}">Contacto</a></li></ul>
+        <ul><li><a href="{{ url('/planes') }}">Planes</a></li><li><a href="{{ url('/carrito') }}">Carrito</a></li><li><a href="{{ url('/contacto') }}">Contacto</a></li></ul>
       </div>
       <div>
         <h4>Clientes</h4>

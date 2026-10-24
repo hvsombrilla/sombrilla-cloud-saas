@@ -14,11 +14,13 @@
             <div class="sc-line" style="align-items:center">
               <div>
                 <strong>{{ $item['plan']->name }}</strong>
-                <div class="sc-muted" style="font-size:.88rem">{{ \SombrillaCloud\Support\Cycles::label($item['cycle']) }}@if($item['domain']) · {{ $item['domain'] }}@endif</div>
+                <div class="sc-muted" style="font-size:.88rem">{{ $item['workspace'] }} · {{ \SombrillaCloud\Support\Cycles::label($item['cycle']) }}</div>
+                <div class="sc-muted" style="font-size:.88rem">@if(($item['mode'] ?? 'subdomain') === 'subdomain'){{ \SombrillaCloud\Support\Tenancy::host($item['subdomain']) }}@elseif(($item['mode'] ?? '') === 'buy')Dominio nuevo: {{ $item['domain'] }}@else Tu dominio: {{ $item['domain'] }}@endif</div>
+                @if($item['domain_charge'] > 0)<div class="sc-faint" style="font-size:.82rem">+ dominio {{ scloud_money($item['domain_charge']) }} (1 año)</div>@endif
                 @if($item['setup'] > 0)<div class="sc-faint" style="font-size:.82rem">+ instalación {{ scloud_money($item['setup']) }}</div>@endif
               </div>
               <div class="sc-right">
-                <strong>{{ scloud_money($item['price']) }}</strong>
+                <strong>{{ scloud_money($item['price'] + $item['domain_charge']) }}</strong>
                 <form method="post" action="{{ url('/carrito/' . $item['key'] . '/quitar') }}">{!! scloud_csrf() !!}<button class="sc-btn sc-btn--ghost sc-btn--sm" style="margin-top:6px">Quitar</button></form>
               </div>
             </div>
