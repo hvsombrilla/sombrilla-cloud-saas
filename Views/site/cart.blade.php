@@ -29,7 +29,15 @@
         </div>
         <aside class="sc-card" style="position:sticky;top:84px">
           <h3>Resumen</h3>
+          @if($coupon)
+            <div class="sc-line"><span>Cupón <strong class="sc-mono">{{ $coupon['code'] }}</strong> ({{ $coupon['label'] }})</span>
+              <form method="post" action="{{ url('/carrito/cupon/quitar') }}">{!! scloud_csrf() !!}<button class="sc-btn sc-btn--ghost sc-btn--sm">Quitar</button></form></div>
+          @else
+            <form method="post" action="{{ url('/carrito/cupon') }}" style="display:flex;gap:8px;margin-bottom:12px">{!! scloud_csrf() !!}
+              <input type="text" name="coupon" placeholder="Código de cupón" maxlength="40" autocomplete="off" style="flex:1;min-width:0"><button class="sc-btn sc-btn--ghost">Aplicar</button></form>
+          @endif
           <div class="sc-line"><span>Subtotal</span><span>{{ scloud_money($totals['subtotal']) }}</span></div>
+          @if(($totals['discount'] ?? 0) > 0)<div class="sc-line"><span>Cupón {{ $coupon['code'] }}</span><span>− {{ scloud_money($totals['discount']) }}</span></div>@endif
           <div class="sc-line"><span>{{ scloud_setting('tax_label') }} ({{ $totals['rate'] }}%)</span><span>{{ scloud_money($totals['tax']) }}</span></div>
           <div class="sc-total"><span>Total</span><span>{{ scloud_money($totals['total']) }}</span></div>
           <a class="sc-btn sc-btn--lg sc-btn--block" style="margin-top:18px" href="{{ url('/checkout') }}">Continuar al checkout</a>

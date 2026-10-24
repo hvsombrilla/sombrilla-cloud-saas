@@ -7,6 +7,17 @@ use Studio\Models\Model;
 
 class Service extends Model
 {
+    use \Studio\Models\Traits\Auditable;
+    use AuditsStatus;
+    protected string $auditEntity = 'scloud_services';
+    protected array $auditExclude = ['last_error', 'domain_cost_usd'];
+    protected array $auditLabels = ['subdomain' => 'Subdominio', 'domain_mode' => 'Modo de dominio', 'domain' => 'Dominio', 'domain_status' => 'Estado del dominio', 'domain_price' => 'Precio del dominio', 'domain_expires_at' => 'Vence el dominio', 'workspace_name' => 'Nombre del espacio', 'admin_email' => 'Administrador', 'billing_cycle' => 'Ciclo de cobro', 'amount' => 'Importe recurrente', 'status' => 'Estado', 'registration_date' => 'Alta', 'next_due_date' => 'Próximo vencimiento', 'suspend_reason' => 'Motivo de suspensión', 'cancel_requested' => 'Cancelación solicitada', 'notes' => 'Notas', 'plugins_mode' => 'Plugins', 'plugins_list' => 'Lista de plugins'];
+
+    public function auditTitle(): string
+    {
+        return (string) ($this->domain ?: ($this->subdomain ?: ('Servicio #' . $this->getKey())));
+    }
+
     protected $table = 'scloud_services';
 
     public const STATUSES = [

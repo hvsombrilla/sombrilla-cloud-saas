@@ -105,7 +105,7 @@ class OrderService
      * @param array $items [['plan_id', 'cycle', 'domain'], ...]
      * @return array{ok: bool, order?: Order, errors?: string[]}
      */
-    public static function place(Customer $customer, array $items, string $notes = '', ?string $ip = null): array
+    public static function place(Customer $customer, array $items, string $notes = '', ?string $ip = null, ?string $couponCode = null): array
     {
         if (!$items) {
             return ['ok' => false, 'errors' => ['Tu carrito está vacío.']];
@@ -134,7 +134,19 @@ class OrderService
             return ['ok' => false, 'errors' => $errors];
         }
 
-        $order = Capsule::connection()->transaction(function () use ($customer, $valid, $notes, $ip) {
+        // Cupón: se revalida y el descuento se recalcula aquí, nunca viene del carrito.
+        $coupon   = null;
+        $discount = ['discount' => 0.0, 'lines' => []];
+        if ($couponCode !== null && $couponCode !== '') {
+            $coupon = CouponService::find($couponCode);
+            $error  = $coupon ? CouponService::error($coupon, array_map(fn($v) => $v['plan']->id, $valid), $customer) : 'Ese cupón no existe.';
+            if ($error) {
+                return ['ok' => false, 'errors' => [$error]];
+            }
+            $discount = CouponService::allocate($coupon, array_map(fn($v) => ['plan_id' => $v['plan']->id, 'price' => $v['price'], 'setup' => (float) $v['plan']->setup_fee], $valid));
+        }
+
+        $order = Capsule::connection()->transaction(function () use ($customer, $valid, $notes, $ip, $coupon, $discount) {
             $order = Order::create([
                 'code'           => Order::nextCode(),
                 'customer_id'    => $customer->id,
@@ -142,6 +154,9 @@ class OrderService
                 'payment_method' => 'bank_transfer',
                 'notes'          => $notes !== '' ? mb_substr($notes, 0, 2000) : null,
                 'ip'             => $ip,
+                'coupon_id'      => $coupon?->id,
+                'coupon_code'    => $coupon?->code,
+                'discount'       => $discount['discount'],
             ]);
             foreach ($valid as $v) {
                 Service::create([
@@ -168,13 +183,14 @@ class OrderService
         $lines    = [];
         $subtotal = 0.0;
         $start    = date('d/m/Y');
-        foreach ($valid as $v) {
+        foreach ($valid as $i => $v) {
             $end = Cycles::addTo(date('Y-m-d'), $v['cycle'])->format('d/m/Y');
             $lines[] = [
                 'product_id'  => $v['plan']->product_id,
                 'description' => "Instancia {$v['plan']->name} — " . Tenancy::host($v['subdomain']) . ' · ' . Cycles::label($v['cycle']) . " ({$start} - {$end})",
                 'quantity'    => 1,
                 'unit_price'  => $v['price'],
+                'discount'    => $discount['lines'][$i]['price'] ?? 0,
             ];
             $subtotal += $v['price'];
             if ($v['domain_price'] > 0) {
@@ -182,7 +198,7 @@ class OrderService
                 $subtotal += $v['domain_price'];
             }
             if ($v['plan']->setup_fee > 0) {
-                $lines[] = ['description' => "Instalación {$v['plan']->name}", 'quantity' => 1, 'unit_price' => $v['plan']->setup_fee];
+                $lines[] = ['description' => "Instalación {$v['plan']->name}", 'quantity' => 1, 'unit_price' => $v['plan']->setup_fee, 'discount' => $discount['lines'][$i]['setup'] ?? 0];
                 $subtotal += $v['plan']->setup_fee;
             }
         }
@@ -199,6 +215,13 @@ class OrderService
         }
 
         $order->update(['invoice_id' => $res['invoice']->id, 'total' => $res['invoice']->total]);
+
+        if ($coupon) {
+            Capsule::table('scloud_coupon_redemptions')->insert([
+                'coupon_id' => $coupon->id, 'customer_id' => $customer->id, 'order_id' => $order->id,
+                'amount' => $discount['discount'], 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
 
         Mailer::orderPlaced($order->fresh(['customer', 'services.plan']), $res['invoice']);
         if (function_exists('ss_notify')) {

@@ -4,6 +4,7 @@ namespace SombrillaCloud\Controllers\Site;
 
 use Illuminate\Http\Request;
 use SombrillaCloud\Models\Plan;
+use SombrillaCloud\Services\CouponService;
 use SombrillaCloud\Services\DomainService;
 use SombrillaCloud\Services\OrderService;
 use SombrillaCloud\Support\Tenancy;
@@ -61,6 +62,27 @@ class CartController
     public function index()
     {
         return scloud_view('site.cart', Cart::detailed());
+    }
+
+    public function applyCoupon(Request $request)
+    {
+        $cart   = Cart::detailed();
+        $coupon = CouponService::find((string) $request->input('coupon'));
+        $error  = !$cart['items'] ? 'Tu carrito está vacío.' : (!$coupon ? 'Ese cupón no existe.' : CouponService::error($coupon, array_column($cart['items'], 'plan_id'), scloud_customer()));
+        if ($error) {
+            return scloud_back_with('/carrito', [$error]);
+        }
+        Cart::setCoupon($coupon->code);
+        flash('success', "Cupón {$coupon->code} aplicado.");
+
+        return redirect(url('/carrito'));
+    }
+
+    public function removeCoupon()
+    {
+        Cart::setCoupon(null);
+
+        return redirect(url('/carrito'));
     }
 
     public function remove(string $key)

@@ -81,7 +81,7 @@ class BillingService
             'description' => $l['description'],
             'quantity'    => $l['quantity'] ?? 1,
             'unit_price'  => $l['unit_price'],
-            'discount'    => 0,
+            'discount'    => $l['discount'] ?? 0,
             'itbis_rate'  => $rate,
         ], $lines);
 

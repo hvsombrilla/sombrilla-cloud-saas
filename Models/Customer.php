@@ -6,6 +6,11 @@ use Studio\Models\Model;
 
 class Customer extends Model
 {
+    use \Studio\Models\Traits\Auditable;
+    protected string $auditEntity = 'scloud_customers';
+    protected array $auditExclude = ['password', 'reset_token', 'reset_expires_at', 'last_login_ip', 'last_login_at'];
+    protected array $auditLabels = ['name' => 'Nombre', 'company' => 'Empresa', 'email' => 'Correo', 'phone' => 'Teléfono', 'tax_id' => 'Documento fiscal', 'address' => 'Dirección', 'city' => 'Ciudad', 'country' => 'País', 'status' => 'Estado', 'notes' => 'Notas'];
+
     protected $table = 'scloud_customers';
 
     protected $hidden = ['password', 'reset_token'];

@@ -5,6 +5,7 @@ namespace SombrillaCloud\Controllers\Admin;
 use Illuminate\Http\Request;
 use SombrillaCloud\Models\Plan;
 use SombrillaCloud\Models\Service;
+use SombrillaCloud\Services\PlanLimits;
 use SombrillaCloud\Support\Cycles;
 
 class PlanController
@@ -47,7 +48,9 @@ class PlanController
             return scloud_back_with('/scloud/planes/' . $id, [$data], $request->all());
         }
         $plan->update($data);
-        flash('success', 'Plan guardado.');
+        // Los límites del plan viajan a las instancias que ya lo tienen.
+        $synced = PlanLimits::syncPlan($plan->fresh());
+        flash('success', 'Plan guardado.' . ($synced ? " Límites aplicados a {$synced} " . ($synced === 1 ? 'instancia.' : 'instancias.') : ''));
 
         return redirect(url('/scloud/planes/' . $id));
     }
@@ -89,7 +92,21 @@ class PlanController
             return 'Define el precio de al menos un ciclo de facturación.';
         }
 
+        // Límites de la instancia: vacío = sin límite.
+        $limit = fn(string $key, int $max) => ($v = trim((string) $request->input($key))) === '' ? null : (max(0, min($max, (int) $v)) ?: null);
+        $catalog = array_keys(PlanLimits::catalog());
+        $mode    = array_key_exists((string) $request->input('plugins_mode'), PlanLimits::MODES) ? (string) $request->input('plugins_mode') : 'all';
+        $list    = array_values(array_intersect($catalog, array_map('strval', (array) $request->input('plugins_list', []))));
+        if ($mode === 'only' && !$list) {
+            return 'Elige al menos un plugin permitido, o usa «Todos los plugins».';
+        }
+
         return $prices + [
+            'max_users' => $limit('max_users', 100000),
+            'max_plugins' => $limit('max_plugins', 1000),
+            'storage_mb' => $limit('storage_mb', 10485760),
+            'plugins_mode' => $mode,
+            'plugins_list' => $mode === 'all' || !$list ? null : json_encode($list),
             'name' => mb_substr($name, 0, 150), 'slug' => $slug,
             'category' => mb_substr(trim((string) $request->input('category')) ?: 'Instancias', 0, 100),
             'tagline' => mb_substr(trim((string) $request->input('tagline')), 0, 250) ?: null,

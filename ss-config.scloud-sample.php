@@ -6,8 +6,9 @@
  * *.sombrilla.cloud apunta a este directorio y, según el host de la petición, se usa la base de datos
  * y el storage de la instancia correspondiente. Sin consultar ninguna otra base de datos.
  *
- *   SQLite de la instancia:  {storage}/{subdominio}-{hash}.sqlite
- *   Storage de la instancia: {storage}/{subdominio}-{hash}/
+ *   Storage de la instancia: {data}/{subdominio}-{hash}/
+ *   SQLite de la instancia:  {data}/{subdominio}-{hash}/database.sqlite
+ *   {data} = ./data del sitio (cámbialo con scloud.data_path). ./storage queda solo para el panel principal.
  *   hash = primeros 16 hex de HMAC-SHA256(subdominio, scloud.tenant_secret)
  */
 
@@ -29,6 +30,9 @@ Config::set('scloud.base_domain', 'sombrilla.cloud');
 //   php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
 Config::set('scloud.tenant_secret', 'CAMBIA-ESTO-por-una-cadena-aleatoria-de-64-hex');
 
+// Carpeta donde viven las instancias (storage + SQLite de cada una). Por defecto ./data del sitio.
+// Config::set('scloud.data_path', '/var/lib/sombrilla/data');
+
 // Hosts extra que sirven el panel principal (además de la raíz y www).
 // Config::set('scloud.main_hosts', ['panel.sombrilla.cloud']);
 
@@ -41,6 +45,9 @@ Config::set('scloud.tenant_secret', 'CAMBIA-ESTO-por-una-cadena-aleatoria-de-64-
 
 // Plugins del sistema que NO se muestran a las instancias (sombrilla-cloud ya está siempre oculto).
 // Config::set('scloud.tenant_hidden_plugins', ['god-mode']);
+
+// Los límites de usuarios, plugins activos, almacenamiento y plugins permitidos NO se configuran aquí: se definen en cada plan
+// (Sombrilla Cloud › Planes). Una instalación del core sin este plugin puede usar Config::set('limits', [...]) (ver docs/PLUGIN-DEVELOPMENT.md §18).
 
 // Plugins que vienen ya activados en cada instancia nueva (el admin de la instancia puede desactivarlos). Por defecto, ninguno:
 // sin esto, cada instancia activa los que quiera, tanto los de /plugins como los de su storage/plugins.

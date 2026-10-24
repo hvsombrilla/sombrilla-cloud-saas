@@ -6,6 +6,17 @@ use Studio\Models\Model;
 
 class Order extends Model
 {
+    use \Studio\Models\Traits\Auditable;
+    use AuditsStatus;
+    protected string $auditEntity = 'scloud_orders';
+    protected array $auditExclude = ['ip'];
+    protected array $auditLabels = ['code' => 'Código', 'status' => 'Estado', 'payment_method' => 'Forma de pago', 'total' => 'Total', 'notes' => 'Notas', 'coupon_code' => 'Cupón', 'discount' => 'Descuento'];
+
+    public function auditTitle(): string
+    {
+        return (string) ($this->code ?: ('Pedido #' . $this->getKey()));
+    }
+
     protected $table = 'scloud_orders';
 
     public const STATUSES = [

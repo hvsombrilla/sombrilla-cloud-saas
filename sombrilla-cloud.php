@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Sombrilla Cloud
  * Plugin URI: https://sombrilla.cloud
- * Description: Venta de instancias de Sombrilla Studio: sitio público, planes, carrito y checkout, subdominio/dominio propio o comprado (Cloudflare), instancia con SQLite propia y autologin, pagos por transferencia, tickets y facturación con el ERP.
+ * Description: Vende instancias de Sombrilla Studio con tienda, pagos y dominios propios.
  * Version: 2.0.0
  * Author: HV Sombrilla
  * Author URI: https://hvsombrilla.com
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
 define('SCLOUD_DIR',        __DIR__ . '/');
 define('SCLOUD_URL',        '/plugins/sombrilla-cloud/');
 define('SCLOUD_VERSION',    '2.0.0');
-define('SCLOUD_DB_VERSION', '2');
+define('SCLOUD_DB_VERSION', '4');
 
 // Autoloader del plugin (namespace raíz: SombrillaCloud\)
 spl_autoload_register(function (string $class): void {

@@ -208,6 +208,34 @@ class Migrations
             });
         }
 
+        if (!$schema->hasTable('scloud_coupons')) {
+            $schema->create('scloud_coupons', function (Blueprint $t) {
+                $t->id();
+                $t->string('code', 40)->unique();
+                $t->string('description', 250)->nullable();
+                $t->string('type', 10)->default('percent'); // percent | fixed
+                $t->decimal('value', 16, 2)->default(0);
+                $t->unsignedBigInteger('plan_id')->nullable()->index(); // null = todos los planes
+                $t->unsignedInteger('max_uses')->nullable();
+                $t->boolean('once_per_customer')->default(false);
+                $t->date('starts_at')->nullable();
+                $t->date('expires_at')->nullable();
+                $t->boolean('is_active')->default(true);
+                $t->timestamps();
+            });
+        }
+
+        if (!$schema->hasTable('scloud_coupon_redemptions')) {
+            $schema->create('scloud_coupon_redemptions', function (Blueprint $t) {
+                $t->id();
+                $t->unsignedBigInteger('coupon_id')->index();
+                $t->unsignedBigInteger('customer_id')->index();
+                $t->unsignedBigInteger('order_id')->index();
+                $t->decimal('amount', 16, 2)->default(0); // descuento sin impuestos
+                $t->timestamps();
+            });
+        }
+
         self::upgrade($schema);
 
         SsOption::set(self::OPTION, SCLOUD_DB_VERSION);
@@ -233,6 +261,32 @@ class Migrations
         foreach ($add as $column => $definition) {
             if (!$schema->hasColumn('scloud_services', $column)) {
                 $schema->table('scloud_services', fn(Blueprint $t) => $definition($t));
+            }
+        }
+
+        // v4: límites del plan para las instancias (usuarios, plugins activos, storage y plugins permitidos).
+        $planCols = [
+            'max_users'    => fn(Blueprint $t) => $t->unsignedInteger('max_users')->nullable(),
+            'max_plugins'  => fn(Blueprint $t) => $t->unsignedInteger('max_plugins')->nullable(),
+            'storage_mb'   => fn(Blueprint $t) => $t->unsignedInteger('storage_mb')->nullable(),
+            'plugins_mode' => fn(Blueprint $t) => $t->string('plugins_mode', 10)->default('all'),   // all | only | except
+            'plugins_list' => fn(Blueprint $t) => $t->text('plugins_list')->nullable(),             // JSON con los slugs
+        ];
+        foreach ($planCols as $column => $definition) {
+            if (!$schema->hasColumn('scloud_plans', $column)) {
+                $schema->table('scloud_plans', fn(Blueprint $t) => $definition($t));
+            }
+        }
+
+        // v3: cupones. El pedido recuerda el cupón y el descuento (sin impuestos).
+        $orderCols = [
+            'coupon_id'   => fn(Blueprint $t) => $t->unsignedBigInteger('coupon_id')->nullable(),
+            'coupon_code' => fn(Blueprint $t) => $t->string('coupon_code', 40)->nullable(),
+            'discount'    => fn(Blueprint $t) => $t->decimal('discount', 16, 2)->default(0),
+        ];
+        foreach ($orderCols as $column => $definition) {
+            if (!$schema->hasColumn('scloud_orders', $column)) {
+                $schema->table('scloud_orders', fn(Blueprint $t) => $definition($t));
             }
         }
 

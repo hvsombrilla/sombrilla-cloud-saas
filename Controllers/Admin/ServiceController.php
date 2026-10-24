@@ -9,6 +9,7 @@ use SombrillaCloud\Models\ServiceLog;
 use SombrillaCloud\Services\BillingService;
 use SombrillaCloud\Services\CronService;
 use SombrillaCloud\Services\DomainService;
+use SombrillaCloud\Services\PlanLimits;
 use SombrillaCloud\Services\Provisioner;
 use SombrillaCloud\Support\Cycles;
 use SombrillaCloud\Support\Mailer;
@@ -73,6 +74,7 @@ class ServiceController
             'reset'     => Provisioner::resetAdminPassword($service),
             'domain'    => (function () use ($service) { DomainService::sync($service); return ['ok' => true, 'error' => null]; })(),
             'login'     => Provisioner::loginUrl($service),
+            'limits'    => (function () use ($service) { return PlanLimits::syncService($service) ? ['ok' => true, 'error' => null] : ['ok' => false, 'error' => 'No se pudieron escribir los límites (la instancia no existe o no hay permisos).']; })(),
             default     => ['ok' => false, 'error' => 'Acción desconocida.'],
         };
         if ($res['ok'] && $action === 'login') {
@@ -82,7 +84,7 @@ class ServiceController
         if ($res['ok'] && $action === 'suspend') {
             Mailer::serviceSuspended($service->fresh(['customer']));
         }
-        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? ($action === 'reset' ? 'Contraseña restablecida' . (!empty($res['sent']) ? ' y enviada al cliente.' : ', pero el correo no pudo enviarse.') : 'Acción completada.') : $res['error']);
+        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? ($action === 'limits' ? 'Límites del plan aplicados a la instancia.' : ($action === 'reset' ? 'Contraseña restablecida' . (!empty($res['sent']) ? ' y enviada al cliente.' : ', pero el correo no pudo enviarse.') : 'Acción completada.')) : $res['error']);
 
         return redirect(url('/scloud/servicios/' . $id));
     }

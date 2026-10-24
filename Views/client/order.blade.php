@@ -21,6 +21,7 @@
   @foreach($order->services as $s)
     <div class="sc-line" style="align-items:center"><div><a href="{{ url('/cliente/servicios/' . $s->id) }}"><strong>{{ $s->title() }}</strong></a><div class="sc-muted" style="font-size:.85rem">{{ $s->cycleLabel() }} · {{ scloud_money($s->amount) }}</div></div>{!! scloud_chip($s->statusLabel(), $s->statusTone()) !!}</div>
   @endforeach
+  @if($order->discount > 0)<div class="sc-line"><span>Cupón {{ $order->coupon_code }}</span><span>− {{ scloud_money($order->discount) }} <small class="sc-muted">(sin impuestos)</small></span></div>@endif
   <div class="sc-total"><span>Total (con impuestos)</span><span>{{ scloud_money($order->total) }}</span></div>
 </div>
 @endsection

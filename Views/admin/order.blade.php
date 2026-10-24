@@ -28,7 +28,11 @@
     <div class="sc-card"><h3>Factura (ERP)</h3>
       @if($invoice)<dl class="sc-kv" style="grid-template-columns:90px 1fr"><dt>Número</dt><dd><a href="{{ url('/erp/invoices/' . $invoice->id) }}">{{ $invoice->code }}</a></dd><dt>Estado</dt><dd>{{ $invoice->statusLabel() }}</dd><dt>Total</dt><dd>{{ scloud_money($invoice->total) }}</dd><dt>Saldo</dt><dd>{{ scloud_money($invoice->balance) }}</dd><dt>Vence</dt><dd>{{ scloud_date($invoice->due_date) }}</dd></dl>@else<div class="sc-muted">Sin factura.</div>@endif
     </div>
+    @if($order->coupon_code)<div class="sc-card"><h3>Cupón</h3><dl class="sc-kv" style="grid-template-columns:90px 1fr"><dt>Código</dt><dd class="sc-mono">{{ $order->coupon_code }}</dd><dt>Descuento</dt><dd>{{ scloud_money($order->discount) }} <span class="sc-muted">(sin impuestos)</span></dd></dl></div>@endif
     @if($order->notes)<div class="sc-card"><h3>Notas del cliente</h3><div style="white-space:pre-wrap">{{ $order->notes }}</div></div>@endif
   </div>
+</div>
+<div style="margin-top:16px;">
+  @include('studio::partials.chatter', ['entity' => 'scloud_orders', 'id' => $order->id])
 </div>
 @endsection

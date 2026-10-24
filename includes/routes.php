@@ -17,6 +17,8 @@ Route::group(['middleware' => ['scloud-csrf', 'offline:none']], function () use 
     Route::post('/carrito', ['uses' => $site . 'CartController@add']);
     Route::get('/dominio/subdominio', ['uses' => $site . 'DomainController@subdomain']);
     Route::get('/dominio/buscar', ['uses' => $site . 'DomainController@search']);
+    Route::post('/carrito/cupon', ['uses' => $site . 'CartController@applyCoupon']);
+    Route::post('/carrito/cupon/quitar', ['uses' => $site . 'CartController@removeCoupon']);
     Route::post('/carrito/{key}/quitar', ['uses' => $site . 'CartController@remove'])->where('key', '[a-f0-9]+');
     Route::get('/checkout', ['uses' => $site . 'CheckoutController@show']);
     Route::post('/checkout', ['uses' => $site . 'CheckoutController@place']);
@@ -115,6 +117,14 @@ Route::group(['middleware' => ['auth', 'scloud-csrf']], function () use ($admin,
     Route::get('/scloud/planes/{id}', ['uses' => "$pl@edit"])->where($id)->middleware('permission:scloud_manage_plans');
     Route::post('/scloud/planes/{id}', ['uses' => "$pl@update"])->where($id)->middleware('permission:scloud_manage_plans');
     Route::post('/scloud/planes/{id}/eliminar', ['uses' => "$pl@destroy"])->where($id)->middleware('permission:scloud_manage_plans');
+
+    $cp = $admin . 'CouponController';
+    Route::get('/scloud/cupones', ['uses' => "$cp@index"])->middleware('permission:scloud_manage_plans');
+    Route::get('/scloud/cupones/nuevo', ['uses' => "$cp@create"])->middleware('permission:scloud_manage_plans');
+    Route::post('/scloud/cupones', ['uses' => "$cp@store"])->middleware('permission:scloud_manage_plans');
+    Route::get('/scloud/cupones/{id}', ['uses' => "$cp@edit"])->where($id)->middleware('permission:scloud_manage_plans');
+    Route::post('/scloud/cupones/{id}', ['uses' => "$cp@update"])->where($id)->middleware('permission:scloud_manage_plans');
+    Route::post('/scloud/cupones/{id}/eliminar', ['uses' => "$cp@destroy"])->where($id)->middleware('permission:scloud_manage_plans');
 
     $st = $admin . 'SettingsController';
     Route::get('/scloud/ajustes', ['uses' => "$st@index"])->middleware('permission:scloud_manage_settings');

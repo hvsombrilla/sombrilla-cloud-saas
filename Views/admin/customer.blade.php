@@ -33,4 +33,7 @@
   </form>
 </div>
 </div>
+<div style="margin-top:16px;">
+  @include('studio::partials.chatter', ['entity' => 'scloud_customers', 'id' => $customer->id])
+</div>
 @endsection

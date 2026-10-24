@@ -7,6 +7,10 @@ use Studio\Models\Model;
 
 class Plan extends Model
 {
+    use \Studio\Models\Traits\Auditable;
+    protected string $auditEntity = 'scloud_plans';
+    protected array $auditLabels = ['name' => 'Nombre', 'slug' => 'Identificador', 'category' => 'Categoría', 'tagline' => 'Lema', 'description' => 'Descripción', 'features' => 'Características', 'setup_fee' => 'Costo de instalación', 'is_featured' => 'Destacado', 'is_active' => 'Activo', 'is_hidden' => 'Oculto', 'sort_order' => 'Orden'];
+
     protected $table = 'scloud_plans';
 
     protected $casts = [
@@ -16,6 +20,14 @@ class Plan extends Model
         'is_hidden'       => 'boolean',
         'sort_order'      => 'integer',
     ];
+
+    /** Slugs de plugins de la selección del plan (según plugins_mode). */
+    public function pluginList(): array
+    {
+        $list = json_decode((string) $this->plugins_list, true);
+
+        return is_array($list) ? array_values(array_unique(array_map('strval', $list))) : [];
+    }
 
     public function scopeVisible($query)
     {

@@ -24,8 +24,9 @@
       @if($service->status === 'suspended')<form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}">{!! scloud_csrf() !!}<input type="hidden" name="action" value="unsuspend"><button class="sc-btn sc-btn--ok">Reactivar</button></form>@endif
       @if($service->isLive())
         <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" onsubmit="return confirm('¿Generar una contraseña nueva para el administrador y enviarla por correo al cliente?')">{!! scloud_csrf() !!}<input type="hidden" name="action" value="reset"><button class="sc-btn sc-btn--ghost">Restablecer acceso</button></form>
+        <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" title="{{ $service->plan ? \SombrillaCloud\Services\PlanLimits::summary($service->plan) : '' }}">{!! scloud_csrf() !!}<input type="hidden" name="action" value="limits"><button class="sc-btn sc-btn--ghost">Aplicar límites del plan</button></form>
         @if(in_array($service->domain_status, ['registering', 'dns_pending'], true))<form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}">{!! scloud_csrf() !!}<input type="hidden" name="action" value="domain"><button class="sc-btn sc-btn--ghost">Verificar dominio</button></form>@endif
-        <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" onsubmit="return confirm('¿ARCHIVAR la instancia? Deja de estar disponible. Sus datos se mueven a storage/trash y se pueden recuperar a mano.')">{!! scloud_csrf() !!}<input type="hidden" name="action" value="terminate"><button class="sc-btn sc-btn--danger sc-btn--sm">Archivar instancia</button></form>
+        <form method="post" action="{{ url('/scloud/servicios/' . $service->id . '/accion') }}" onsubmit="return confirm('¿ARCHIVAR la instancia? Deja de estar disponible. Sus datos se mueven a data/trash y se pueden recuperar a mano.')">{!! scloud_csrf() !!}<input type="hidden" name="action" value="terminate"><button class="sc-btn sc-btn--danger sc-btn--sm">Archivar instancia</button></form>
       @endif
     </div>
   </div>
@@ -50,5 +51,8 @@
   @forelse($service->logs->take(40) as $l)<div class="sc-line" style="flex-direction:column;gap:2px"><span><span class="sc-chip {{ $l->ok ? 'sc-chip--ok' : 'sc-chip--bad' }}">{{ $l->action }}</span> <span class="sc-muted">{{ $l->created_at->format('d/m/Y H:i') }}</span></span><span style="font-size:13px">{{ $l->message }}</span></div>
   @empty<div class="sc-muted">Sin actividad.</div>@endforelse
 </div>
+</div>
+<div style="margin-top:16px;">
+  @include('studio::partials.chatter', ['entity' => 'scloud_services', 'id' => $service->id])
 </div>
 @endsection

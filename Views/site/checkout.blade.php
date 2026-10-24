@@ -68,6 +68,7 @@
           @if($item['domain_charge'] > 0)<div class="sc-line"><span><small class="sc-muted">Dominio {{ $item['domain'] }} (1 año)</small></span><span>{{ scloud_money($item['domain_charge']) }}</span></div>@endif
         @endforeach
         <div class="sc-line"><span>Subtotal</span><span>{{ scloud_money($totals['subtotal']) }}</span></div>
+        @if(($totals['discount'] ?? 0) > 0)<div class="sc-line"><span>Cupón {{ $coupon['code'] }}</span><span>− {{ scloud_money($totals['discount']) }}</span></div>@endif
         <div class="sc-line"><span>{{ scloud_setting('tax_label') }} ({{ $totals['rate'] }}%)</span><span>{{ scloud_money($totals['tax']) }}</span></div>
         <div class="sc-total"><span>Total</span><span>{{ scloud_money($totals['total']) }}</span></div>
         <button class="sc-btn sc-btn--lg sc-btn--block" style="margin-top:18px" type="submit">Confirmar pedido</button>

@@ -39,4 +39,7 @@
   </div>
 </div>
 </div>
+<div style="margin-top:16px;">
+  @include('studio::partials.chatter', ['entity' => 'scloud_tickets', 'id' => $ticket->id])
+</div>
 @endsection

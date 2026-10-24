@@ -21,6 +21,23 @@ register_permission_group('scloud', 'Sombrilla Cloud', [
     'scloud_manage_settings'  => 'Ajustes de Sombrilla Cloud',
 ], 'ph ph-cloud');
 
+// Chatter y auditoría (Ajustes › Avanzado › Auditoría). Ver docs/CHATTER.md del core.
+foreach ([
+    ['scloud_orders',    'Pedidos',         'ph ph-shopping-cart',   'scloud_view', 'scloud_manage_orders',    \SombrillaCloud\Models\Order::class,    '/scloud/pedidos/{id}'],
+    ['scloud_services',  'Servicios',       'ph ph-cloud',           'scloud_view', 'scloud_manage_services',  \SombrillaCloud\Models\Service::class,  '/scloud/servicios/{id}'],
+    ['scloud_customers', 'Clientes',        'ph ph-users-three',     'scloud_view', 'scloud_manage_customers', \SombrillaCloud\Models\Customer::class, '/scloud/clientes/{id}'],
+    ['scloud_tickets',   'Tickets',         'ph ph-lifebuoy',        'scloud_view', 'scloud_manage_tickets',   \SombrillaCloud\Models\Ticket::class,   '/scloud/tickets/{id}'],
+    ['scloud_plans',     'Planes',          'ph ph-stack',           'scloud_manage_plans', null,              \SombrillaCloud\Models\Plan::class,     '/scloud/planes/{id}'],
+    ['scloud_coupons',   'Cupones',         'ph ph-ticket',          'scloud_manage_plans', null,              \SombrillaCloud\Models\Coupon::class,   '/scloud/cupones/{id}'],
+    ['scloud_payment_proofs', 'Comprobantes de pago', 'ph ph-receipt', 'scloud_view', 'scloud_approve_payments', \SombrillaCloud\Models\PaymentProof::class, null],
+    ['scloud_bank_accounts',  'Cuentas bancarias',    'ph ph-bank',    'scloud_manage_settings', null,         \SombrillaCloud\Models\BankAccount::class, null],
+] as [$__slug, $__label, $__icon, $__perm, $__write, $__model, $__url]) {
+    ss_chatter_entity($__slug, [
+        'label' => $__label, 'group' => 'Sombrilla Cloud', 'icon' => $__icon, 'permission' => $__perm,
+        'write_permission' => $__write, 'model' => $__model, 'url' => $__url,
+    ]);
+}
+
 // Las facturas de Sombrilla Cloud son a crédito (cuenta por cobrar) pero sin límite de crédito ni mora:
 // el ciclo de cobro (renovación, suspensión) lo lleva este plugin.
 add_filter('erp_invoice_sources', function ($sources) {

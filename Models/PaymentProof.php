@@ -7,6 +7,17 @@ use Studio\Models\Model;
 
 class PaymentProof extends Model
 {
+    use \Studio\Models\Traits\Auditable;
+    use AuditsStatus;
+    protected string $auditEntity = 'scloud_payment_proofs';
+    protected array $auditExclude = ['file'];
+    protected array $auditLabels = ['amount' => 'Monto', 'paid_at' => 'Fecha de pago', 'reference' => 'Referencia', 'notes' => 'Notas', 'status' => 'Estado', 'review_notes' => 'Notas de revisión'];
+
+    public function auditTitle(): string
+    {
+        return 'Comprobante #' . $this->getKey();
+    }
+
     protected $table = 'scloud_payment_proofs';
 
     public const STATUSES = [

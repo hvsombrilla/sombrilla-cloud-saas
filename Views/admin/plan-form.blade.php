@@ -26,6 +26,60 @@
         <div class="sc-field"><label>Costo de instalación (único)</label><input type="number" step="0.01" min="0" name="setup_fee" value="{{ $v('setup_fee', 0) }}"></div>
       </div>
     </div>
+    <div class="sc-card"><h3>Límites de la instancia — deja vacío lo que no quieras limitar</h3>
+      <div class="sc-grid3">
+        <div class="sc-field"><label>Usuarios</label><input type="number" min="1" name="max_users" value="{{ $v('max_users') }}" placeholder="Sin límite"></div>
+        <div class="sc-field"><label>Plugins activos</label><input type="number" min="1" name="max_plugins" value="{{ $v('max_plugins') }}" placeholder="Sin límite"><small>Las dependencias cuentan.</small></div>
+        <div class="sc-field"><label>Almacenamiento (MB)</label><input type="number" min="1" name="storage_mb" value="{{ $v('storage_mb') }}" placeholder="Sin límite"><small>Archivos + base de datos de la instancia.</small></div>
+      </div>
+      @php
+        $catalog  = \SombrillaCloud\Services\PlanLimits::catalog();
+        $mode     = scloud_old('plugins_mode', $plan->plugins_mode ?: 'all');
+        $selected = (array) scloud_old('plugins_list', $plan->pluginList());
+      @endphp
+      <div class="sc-field"><label>Plugins que puede usar</label>
+        <select name="plugins_mode" id="plMode">@foreach(\SombrillaCloud\Services\PlanLimits::MODES as $k => $label)<option value="{{ $k }}" {{ $mode === $k ? 'selected' : '' }}>{{ $label }}</option>@endforeach</select>
+      </div>
+      <div id="plPicker" style="display:{{ $mode === 'all' ? 'none' : 'block' }}">
+        <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px;flex-wrap:wrap">
+          <input type="search" id="plSearch" placeholder="Buscar plugin…" style="flex:1 1 200px;min-width:0">
+          <button type="button" class="sc-btn sc-btn--ghost sc-btn--sm" id="plAll">Marcar todos</button>
+          <button type="button" class="sc-btn sc-btn--ghost sc-btn--sm" id="plNone">Ninguno</button>
+          <span class="sc-muted" id="plCount" style="font-size:.85rem"></span>
+        </div>
+        <p class="sc-muted" style="font-size:.85rem;margin:0 0 8px" id="plHelp"></p>
+        <div id="plGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;max-height:300px;overflow:auto;padding:2px">
+          @foreach($catalog as $slug => $p)
+            <label class="sc-check" data-name="{{ strtolower($p['name'] . ' ' . $slug) }}" style="margin:0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;align-items:flex-start">
+              <input type="checkbox" name="plugins_list[]" value="{{ $slug }}" {{ in_array($slug, $selected, true) ? 'checked' : '' }}>
+              <span><b style="font-weight:600">{{ $p['name'] }}</b><br><small class="sc-muted">{{ $slug }}</small></span>
+            </label>
+          @endforeach
+        </div>
+      </div>
+      <script>
+        (function () {
+          var mode = document.getElementById('plMode'), box = document.getElementById('plPicker'), grid = document.getElementById('plGrid');
+          var help = document.getElementById('plHelp'), count = document.getElementById('plCount');
+          var boxes = function () { return grid.querySelectorAll('input[type=checkbox]'); };
+          function paint() {
+            box.style.display = mode.value === 'all' ? 'none' : 'block';
+            help.textContent = mode.value === 'only' ? 'La instancia solo verá y podrá activar los plugins marcados.' : 'La instancia verá todos los plugins, excepto los marcados.';
+            var n = grid.querySelectorAll('input:checked').length;
+            count.textContent = n + ' de ' + boxes().length + ' marcados';
+          }
+          mode.addEventListener('change', paint);
+          grid.addEventListener('change', paint);
+          document.getElementById('plAll').addEventListener('click', function () { boxes().forEach(function (b) { if (b.closest('label').style.display !== 'none') b.checked = true; }); paint(); });
+          document.getElementById('plNone').addEventListener('click', function () { boxes().forEach(function (b) { b.checked = false; }); paint(); });
+          document.getElementById('plSearch').addEventListener('input', function () {
+            var q = this.value.toLowerCase();
+            grid.querySelectorAll('label').forEach(function (l) { l.style.display = l.getAttribute('data-name').indexOf(q) === -1 ? 'none' : ''; });
+          });
+          paint();
+        })();
+      </script>
+    </div>
   </div>
   <div>
     <div class="sc-card"><h3>Facturación</h3>
@@ -43,5 +97,10 @@
 </form>
 @if($plan->exists)
 <form method="post" action="{{ url('/scloud/planes/' . $plan->id . '/eliminar') }}" onsubmit="return confirm('¿Eliminar el plan? Si tiene servicios, solo se desactivará.')" style="margin-top:8px">{!! scloud_csrf() !!}<button class="sc-btn sc-btn--danger sc-btn--sm">Eliminar plan</button></form>
+@endif
+@if($plan->exists)
+<div style="margin-top:16px;">
+  @include('studio::partials.chatter', ['entity' => 'scloud_plans', 'id' => $plan->id])
+</div>
 @endif
 @endsection

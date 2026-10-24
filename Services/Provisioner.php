@@ -42,8 +42,10 @@ class Provisioner
 
         $password = self::password();
         $email    = strtolower((string) $customer->email);
+        $limits   = $service->plan ? PlanLimits::forPlan($service->plan) : [];
         try {
-            TenantDb::create($slug, (string) $service->workspace_name, (string) $customer->name, $email, $password);
+            TenantDb::create($slug, (string) $service->workspace_name, (string) $customer->name, $email, $password, $limits);
+            PlanLimits::write($slug, $limits);
         } catch (\Throwable $e) {
             TenantDb::destroy($slug);
 
@@ -138,7 +140,7 @@ class Provisioner
         return ['ok' => true, 'error' => null];
     }
 
-    /** Archiva la instancia en storage/trash (recuperable a mano) y libera el subdominio y el dominio. */
+    /** Archiva la instancia en data/trash (recuperable a mano) y libera el subdominio y el dominio. */
     public static function terminate(Service $service): array
     {
         if ($service->subdomain && Tenancy::exists($service->subdomain) && !TenantDb::archive($service->subdomain)) {
@@ -148,7 +150,7 @@ class Provisioner
             Tenancy::unmapDomain($service->domain);
         }
         $service->update(['status' => 'terminated']);
-        ServiceLog::write($service->id, 'terminate', true, 'Instancia archivada en storage/trash.', $service->customer_id);
+        ServiceLog::write($service->id, 'terminate', true, 'Instancia archivada en data/trash.', $service->customer_id);
 
         return ['ok' => true, 'error' => null];
     }

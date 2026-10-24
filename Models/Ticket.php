@@ -6,6 +6,17 @@ use Studio\Models\Model;
 
 class Ticket extends Model
 {
+    use \Studio\Models\Traits\Auditable;
+    use AuditsStatus;
+    protected string $auditEntity = 'scloud_tickets';
+    protected array $auditExclude = ['last_reply_at'];
+    protected array $auditLabels = ['code' => 'Código', 'department' => 'Departamento', 'subject' => 'Asunto', 'priority' => 'Prioridad', 'status' => 'Estado'];
+
+    public function auditTitle(): string
+    {
+        return trim(($this->code ? $this->code . ' · ' : '') . $this->subject);
+    }
+
     protected $table = 'scloud_tickets';
 
     public const DEPARTMENTS = [

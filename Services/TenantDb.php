@@ -26,7 +26,7 @@ final class TenantDb
     }
 
     /** Crea la instancia: SQLite, esquema del core, rol y usuario administrador, nombre del workspace y storage. */
-    public static function create(string $slug, string $workspace, string $adminName, string $adminEmail, string $password): void
+    public static function create(string $slug, string $workspace, string $adminName, string $adminEmail, string $password, array $limits = []): void
     {
         $file = Tenancy::dbFile($slug);
         $dir  = Tenancy::dir($slug);
@@ -43,7 +43,7 @@ final class TenantDb
         }
         @chmod($file, 0660);
 
-        self::connect($slug, $file, function () use ($workspace, $adminName, $adminEmail, $password) {
+        self::connect($slug, $file, function () use ($workspace, $adminName, $adminEmail, $password, $limits) {
             \Studio\SchemaManager::createBaseTables();
             \Studio\SchemaManager::migrate();
 
@@ -60,7 +60,7 @@ final class TenantDb
             ]);
             $admin->setRoles([$role->id]);
             Workspace::saveName($workspace);
-            SsOption::set('ss_active_plugins', array_values((array) Tenancy::cfg('tenant_default_plugins', [])));
+            SsOption::set('ss_active_plugins', PlanLimits::defaultPlugins((array) Tenancy::cfg('tenant_default_plugins', []), $limits)); // solo los que el plan permite
         });
 
         @file_put_contents($dir . '/.htaccess', "Require all denied\nDeny from all\n");
@@ -80,9 +80,6 @@ final class TenantDb
     public static function destroy(string $slug): void
     {
         self::removeTree(Tenancy::dir($slug));
-        foreach ([Tenancy::dbFile($slug), Tenancy::dbFile($slug) . '-wal', Tenancy::dbFile($slug) . '-shm'] as $f) {
-            @unlink($f);
-        }
     }
 
     /** Mueve la instancia a trash/ (recuperable) en lugar de borrarla. */
@@ -94,11 +91,8 @@ final class TenantDb
         }
         $stamp = date('Ymd-His');
         $ok    = true;
-        if (is_file(Tenancy::dbFile($slug))) {
-            $ok = @rename(Tenancy::dbFile($slug), "{$trash}/" . Tenancy::key($slug) . "-{$stamp}.sqlite") && $ok;
-        }
         if (is_dir(Tenancy::dir($slug))) {
-            $ok = @rename(Tenancy::dir($slug), "{$trash}/" . Tenancy::key($slug) . "-{$stamp}") && $ok;
+            $ok = @rename(Tenancy::dir($slug), "{$trash}/" . Tenancy::key($slug) . "-{$stamp}") && $ok; // la SQLite va dentro
         }
 
         return $ok;

@@ -9,12 +9,13 @@ use Illuminate\Support\Facades\Config;
  * así que no depende de nada del plugin salvo la facade Config.
  *
  * Cada instancia tiene, calculados SIN consultar ninguna base de datos:
- *   - su SQLite:    {storage}/{slug}-{hash}.sqlite
- *   - su storage:   {storage}/{slug}-{hash}/
- * donde {hash} = primeros 16 hex de HMAC-SHA256(slug, scloud.tenant_secret).
+ *   - su storage:   {data}/{slug}-{hash}/
+ *   - su SQLite:    {data}/{slug}-{hash}/database.sqlite   (dentro de su storage)
+ * donde {hash} = primeros 16 hex de HMAC-SHA256(slug, scloud.tenant_secret) y {data} = ./data del sitio
+ * (o scloud.data_path). ./storage queda solo para el panel principal.
  *
  * Los dominios propios (comprados o apuntados por CNAME) se resuelven con un archivo por dominio en
- * {storage}/domains/{dominio} que contiene el slug (tampoco es una base de datos).
+ * {data}/domains/{dominio} que contiene el slug (tampoco es una base de datos).
  *
  * Configuración (ss-config.php, claves scloud.*): ver ss-config.scloud-sample.php.
  */
@@ -144,21 +145,25 @@ final class Tenancy
         return $slug . '-' . self::hash($slug);
     }
 
-    /** Raíz de storage del panel principal (la de las instancias cuelga de ella). */
+    /** Raíz de datos de las instancias: ./data (o scloud.data_path). ./storage es solo del panel principal. */
     public static function baseRoot(): string
     {
         if (self::$baseRoot === null) {
-            // Si el panel principal ya movió su storage (app.storage_path), las instancias cuelgan de ahí.
-            $custom = trim((string) Config::get('app.storage_path', ''));
-            self::$baseRoot = $custom !== '' ? rtrim(str_replace('\\', '/', $custom), '/') : ss_storage_root();
+            $custom = trim((string) self::cfg('data_path', ''));
+            $root   = rtrim(str_replace('\\', '/', $custom !== '' ? $custom : SOMBRILLA_STUDIO_PATH . 'data'), '/');
+            if (!is_dir($root) && @mkdir($root, 0775, true)) {
+                @file_put_contents($root . '/.htaccess', "Require all denied\n");
+            }
+            self::$baseRoot = $root;
         }
 
         return self::$baseRoot;
     }
 
+    /** SQLite de la instancia, dentro de su storage. */
     public static function dbFile(string $slug): string
     {
-        return self::baseRoot() . '/' . self::key($slug) . '.sqlite';
+        return self::dir($slug) . '/database.sqlite';
     }
 
     public static function dir(string $slug): string
@@ -226,6 +231,31 @@ final class Tenancy
         return preg_match('/^[a-z0-9-]{2,40}$/', $slug) ? $slug : null;
     }
 
+    // ── Límites del plan (los lee el core desde Config limits.*) ───────────
+
+    /** Firma de los límites de una instancia: impide que la propia instancia edite su limits.json. */
+    public static function sign(string $slug, array $limits): string
+    {
+        ksort($limits);
+
+        return hash_hmac('sha256', $slug . '|' . json_encode($limits), self::secret());
+    }
+
+    /** Límites escritos para la instancia, o null si no tiene. @throws \RuntimeException si el archivo fue alterado */
+    public static function readLimits(string $slug): ?array
+    {
+        $file = self::dir($slug) . '/limits.json';
+        if (!is_file($file)) {
+            return null;
+        }
+        $data = json_decode((string) @file_get_contents($file), true);
+        if (!is_array($data) || !is_array($data['limits'] ?? null) || !hash_equals(self::sign($slug, $data['limits']), (string) ($data['sig'] ?? ''))) {
+            throw new \RuntimeException('limits.json inválido');
+        }
+
+        return $data['limits'];
+    }
+
     // ── Suspensión ────────────────────────────────────────────────────────
 
     public static function setSuspended(string $slug, bool $suspended): void
@@ -280,7 +310,18 @@ final class Tenancy
             self::deny(503, 'Instancia suspendida', 'Esta instancia está suspendida. Contacta con quien administra tu cuenta.');
         }
 
+        // Límites del plan (usuarios, plugins, storage). Un archivo alterado deja la instancia fuera de servicio.
+        try {
+            $limits = self::readLimits($slug);
+        } catch (\RuntimeException) {
+            error_log("[sombrilla-cloud] limits.json de {$slug} no es válido (firma incorrecta).");
+            self::deny(503, 'Instancia en revisión', 'La configuración del plan de esta instancia no es válida. Contacta con quien administra tu cuenta.');
+        }
+
         define('SCLOUD_TENANT', $slug);
+        if ($limits) {
+            Config::set('limits', $limits);
+        }
         Config::set('app.storage_path', self::dir($slug));
         Config::set('app.storage_path_keep', ['database.connections.sqlite.database']);
         Config::set('database.default', 'sqlite');
