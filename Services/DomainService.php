@@ -36,6 +36,11 @@ final class DomainService
         if ($error = Tenancy::slugError($slug)) {
             return $error;
         }
+        if (!Tenancy::configured()) {
+            error_log('[sombrilla-cloud] Falta scloud.tenant_secret en ss-config.php: no se pueden contratar instancias.');
+
+            return 'La contratación no está disponible en este momento. Inténtalo más tarde o contacta con soporte.';
+        }
         $taken = Service::where('subdomain', $slug)->whereIn('status', self::LIVE)
             ->when($ignoreServiceId, fn($q) => $q->where('id', '!=', $ignoreServiceId))->exists();
         if ($taken || Tenancy::exists($slug)) {

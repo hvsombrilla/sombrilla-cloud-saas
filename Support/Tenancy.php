@@ -63,6 +63,12 @@ final class Tenancy
         return strtolower(trim((string) self::cfg('base_domain', 'sombrilla.cloud'), '. '));
     }
 
+    /** ¿Está definido scloud.tenant_secret (32+ caracteres)? Sin él no se pueden calcular las rutas de las instancias. */
+    public static function configured(): bool
+    {
+        return strlen((string) self::cfg('tenant_secret', '')) >= 24;
+    }
+
     public static function secret(): string
     {
         $secret = (string) self::cfg('tenant_secret', '');
@@ -282,6 +288,8 @@ final class Tenancy
         // Una instancia no instala plugins ni actualiza el core: lo gestiona el proveedor.
         Config::set('app.plugin_uploads', false);
         Config::set('app.core_updates', false);
+        // Los plugins del panel principal no se ofrecen a las instancias; el resto sí pueden activarlos o desactivarlos.
+        Config::set('app.plugins_hidden', array_values(array_unique(array_merge(['sombrilla-cloud'], array_map('strval', (array) self::cfg('tenant_hidden_plugins', []))))));
     }
 
     /** @return string|null|false slug de la instancia; null = panel principal; false = host desconocido. */

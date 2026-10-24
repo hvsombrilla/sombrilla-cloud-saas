@@ -39,7 +39,11 @@ Config::set('scloud.tenant_secret', 'CAMBIA-ESTO-por-una-cadena-aleatoria-de-64-
 // Config::set('scloud.subdomain_min', 3);
 // Config::set('scloud.subdomain_max', 30);
 
-// Plugins que se activan en cada instancia nueva (slugs de /plugins). Por defecto, ninguno.
+// Plugins del sistema que NO se muestran a las instancias (sombrilla-cloud ya está siempre oculto).
+// Config::set('scloud.tenant_hidden_plugins', ['god-mode']);
+
+// Plugins que vienen ya activados en cada instancia nueva (el admin de la instancia puede desactivarlos). Por defecto, ninguno:
+// sin esto, cada instancia activa los que quiera, tanto los de /plugins como los de su storage/plugins.
 // Config::set('scloud.tenant_default_plugins', ['erp-contactos']);
 
 /*
