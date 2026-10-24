@@ -287,6 +287,7 @@ final class Tenancy
         Config::set('database.connections.sqlite.database', self::dbFile($slug));
         // Una instancia no instala plugins ni actualiza el core: lo gestiona el proveedor.
         Config::set('app.plugin_uploads', false);
+        Config::set('app.plugin_delete', false); // /plugins es compartido: una instancia no puede borrar plugins de todos
         Config::set('app.core_updates', false);
         // Los plugins del panel principal no se ofrecen a las instancias; el resto sí pueden activarlos o desactivarlos.
         Config::set('app.plugins_hidden', array_values(array_unique(array_merge(['sombrilla-cloud'], array_map('strval', (array) self::cfg('tenant_hidden_plugins', []))))));

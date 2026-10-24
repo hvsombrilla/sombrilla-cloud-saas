@@ -51,13 +51,14 @@ final class TenantDb
                 ['slug' => 'admin'],
                 ['name' => 'Administrador', 'description' => 'Acceso total al sistema', 'is_admin' => true]
             );
-            SsUser::create([
+            $admin = SsUser::create([
                 'name'      => $adminName,
                 'email'     => strtolower($adminEmail),
                 'password'  => password_hash($password, PASSWORD_BCRYPT),
                 'role_id'   => $role->id,
                 'is_active' => true,
             ]);
+            $admin->setRoles([$role->id]);
             Workspace::saveName($workspace);
             SsOption::set('ss_active_plugins', array_values((array) Tenancy::cfg('tenant_default_plugins', [])));
         });
