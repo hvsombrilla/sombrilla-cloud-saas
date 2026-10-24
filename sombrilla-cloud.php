@@ -2,71 +2,46 @@
 /**
  * Plugin Name: Sombrilla Cloud
  * Plugin URI: https://sombrilla.cloud
- * Description: Vende instancias de Sombrilla Studio con tienda, pagos y dominios propios.
- * Version: 2.0.0
+ * Description: La línea gráfica de Sombrilla Cloud: un tema de Webs que viste las pantallas de Sombrilla Studio SaaS (portada, planes, carrito y panel del cliente).
+ * Version: 3.0.0
  * Author: HV Sombrilla
  * Author URI: https://hvsombrilla.com
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: sombrilla-cloud
- * Requires Plugins: sombrilla-erp, erp-contactos, erp-stock, erp-facturacion
+ * Requires Plugins: webs, sombrilla-studio-saas
  */
 
 if (!defined('ABSPATH')) {
     exit('No direct script access allowed.');
 }
 
-define('SCLOUD_DIR',        __DIR__ . '/');
-define('SCLOUD_URL',        '/plugins/sombrilla-cloud/');
-define('SCLOUD_VERSION',    '2.0.0');
-define('SCLOUD_DB_VERSION', '4');
+define('SCLOUD_THEME_ID',  'sombrilla-cloud');
+define('SCLOUD_THEME_DIR', __DIR__ . '/theme/');
 
-// Autoloader del plugin (namespace raíz: SombrillaCloud\)
-spl_autoload_register(function (string $class): void {
-    $prefix = 'SombrillaCloud\\';
-    if (!str_starts_with($class, $prefix)) {
-        return;
+// Da de alta el tema en Webs (el filtro funciona aunque este plugin cargue antes que Webs).
+add_filter('webs_themes', function ($themes) {
+    if (is_array($themes)) {
+        $themes[SCLOUD_THEME_ID] = [
+            'name'        => 'Sombrilla Cloud',
+            'description' => 'La línea gráfica de Sombrilla Cloud para las pantallas de Sombrilla Studio SaaS.',
+            'preview'     => SCLOUD_THEME_DIR . 'preview.svg',
+            'file'        => SCLOUD_THEME_DIR . 'theme.php',
+            'version'     => '1.0.0',
+            'author'      => 'HV Sombrilla',
+            'source'      => 'sombrilla-cloud',
+        ];
     }
-    $file = SCLOUD_DIR . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
-    if (file_exists($file)) {
-        require_once $file;
-    }
+
+    return $themes;
 });
 
-add_filter('ss_admin_menu', function (array $menu): array {
-    $user = function_exists('ss_current_user') ? ss_current_user() : null;
-    if (!$user || !$user->can('scloud_view')) {
-        return $menu;
+// Con este tema activo, las vistas «saas/*» del tema sustituyen a las genéricas de Studio SaaS (p. ej. la portada).
+add_filter('scloud_view_name', function ($name) {
+    if (!class_exists(\Webs\Support\Themes::class) || \Webs\Support\Themes::active()?->id !== SCLOUD_THEME_ID) {
+        return $name;
     }
+    $mine = 'webs-theme-' . SCLOUD_THEME_ID . '::saas.' . substr((string) $name, strlen('scloud::'));
 
-    $menu[] = ['id' => 'scloud', 'name' => 'Sombrilla Cloud', 'url' => url('/scloud'), 'icon' => 'ph ph-cloud'];
-    $menu[] = ['name' => 'Panel', 'url' => url('/scloud'), 'parent' => 'scloud'];
-    $menu[] = ['name' => 'Pedidos', 'url' => url('/scloud/pedidos'), 'parent' => 'scloud'];
-    $menu[] = ['name' => 'Pagos por validar', 'url' => url('/scloud/pagos'), 'parent' => 'scloud'];
-    $menu[] = ['name' => 'Servicios', 'url' => url('/scloud/servicios'), 'parent' => 'scloud'];
-    $menu[] = ['name' => 'Clientes', 'url' => url('/scloud/clientes'), 'parent' => 'scloud'];
-    $menu[] = ['name' => 'Tickets', 'url' => url('/scloud/tickets'), 'parent' => 'scloud'];
-    if ($user->can('scloud_manage_plans')) {
-        $menu[] = ['name' => 'Planes', 'url' => url('/scloud/planes'), 'parent' => 'scloud'];
-    }
-    if ($user->can('scloud_manage_settings')) {
-        $menu[] = ['name' => 'Ajustes', 'url' => url('/scloud/ajustes'), 'parent' => 'scloud'];
-    }
-
-    return $menu;
-});
-
-add_action('plugins_loaded', function () {
-    // Este plugin es del panel principal: dentro de una instancia (cliente) nunca se carga, aunque se active.
-    if (class_exists(\SombrillaCloud\Support\Tenancy::class) && \SombrillaCloud\Support\Tenancy::inTenant()) {
-        return;
-    }
-    if (!function_exists('sf_route') || !defined('ERP_FACTURACION_DIR') || !defined('ERP_CONTACTOS_DIR')) {
-        return; // Requiere «Facturación (ERP)» y «Contactos»
-    }
-
-    include SCLOUD_DIR . 'includes/helpers.php';
-    include SCLOUD_DIR . 'includes/loader.php';
-    include SCLOUD_DIR . 'includes/routes.php';
-    include SCLOUD_DIR . 'includes/integrations.php';
+    return str_starts_with((string) $name, 'scloud::') && view()->exists($mine) ? $mine : $name;
 });
