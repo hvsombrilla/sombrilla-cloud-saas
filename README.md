@@ -3,7 +3,7 @@
 La **línea gráfica** de Sombrilla Cloud, empaquetada como un tema de [Webs](../webs/README.md). Toda la funcionalidad (planes, pedidos, instancias, pagos, tickets, panel del cliente…) vive en el plugin **Sombrilla Studio SaaS** (`plugins/sombrilla-studio-saas`); este plugin solo pone la cara.
 
 ## Qué incluye
-- Tema `sombrilla-cloud` (`theme/`): cabecera con carrito y cuenta, pie con datos de contacto, estilos y paleta por defecto.
+- Tema `sombrilla-cloud` (`theme/`, Twig): cabecera con carrito y cuenta, pie con datos de contacto, estilos y paleta por defecto. Los datos de Studio SaaS (marca, carrito, cuenta, pestañas) los aporta el filtro `webs_twig_context` de `sombrilla-cloud.php`; la portada es una **página de Webs con Twig** (`pages/home.twig`, layout `wide`) que el plugin crea una sola vez (ajuste `sombrilla-cloud.home_seeded`) si el tema está activo y no hay página «/»; los planes salen de `data('plans')`. Mientras exista la página «/», el filtro `scloud_register_home` hace que Studio SaaS no registre su portada genérica; si se borra, vuelve la genérica.
 - Layouts `main` (páginas) y `wide` (páginas, blog, tienda y pantallas de Studio SaaS, contexto `saas`).
 - Portada propia (`theme/views/saas/site/home.blade.php`): sustituye a la portada genérica de Studio SaaS mediante el filtro `scloud_view_name`.
 

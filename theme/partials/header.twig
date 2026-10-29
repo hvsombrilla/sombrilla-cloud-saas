@@ -1,0 +1,21 @@
+<header class="sc-header" id="scHeader">
+  <div class="sc-wrap">
+    <a class="sc-logo" href="{{ saas.home_url }}" aria-label="{{ saas.brand }}, inicio">
+      {% if site.logo %}<img src="{{ site.logo }}" alt="{{ saas.brand }}">{% else %}<i class="sc-mark"><span class="ph-fill ph-umbrella"></span></i><span>{{ saas.brand }}</span>{% endif %}
+    </a>
+    <nav class="sc-nav" aria-label="Principal">
+      {% for item in saas.nav %}<a href="{{ item.url }}" class="{{ item.active ? 'is-on' : '' }}">{{ item.label }}</a>{% endfor %}
+    </nav>
+    {% if saas.enabled %}
+    <div class="sc-actions">
+      <a class="sc-icon-btn" href="{{ saas.cart_url }}" aria-label="Carrito{{ saas.cart ? ' (' ~ saas.cart ~ ')' : '' }}"><i class="ph ph-shopping-cart-simple"></i>{% if saas.cart %}<b>{{ saas.cart }}</b>{% endif %}</a>
+      {% if saas.me %}
+        <a class="sc-me" href="{{ saas.account_url }}"><span class="sc-me-av">{{ saas.me.initials }}</span><span class="sc-hide-m">Mi cuenta</span></a>
+      {% else %}
+        <a class="sc-hbtn sc-hbtn--ghost" href="{{ saas.login_url }}">Ingresar</a>
+        <a class="sc-hbtn sc-hide-m" href="{{ saas.register_url }}">Crear cuenta</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</header>

@@ -1,0 +1,65 @@
+{# Pie de página. Todo lo editable vive en el theme: textos y enlaces están aquí; teléfono, correo, dirección, eslogan y
+   redes salen de Webs › Diseño (valores por defecto en theme.json); horario, RNC y URLs legales, de los ajustes del tema. #}
+{% set social = site.social ?: [
+  {label: 'Instagram', icon: 'ph ph-instagram-logo', url: '#'}, {label: 'Facebook', icon: 'ph ph-facebook-logo', url: '#'},
+  {label: 'LinkedIn', icon: 'ph ph-linkedin-logo', url: '#'}, {label: 'YouTube', icon: 'ph ph-youtube-logo', url: '#'}
+] %}
+{% set columns = [
+  {title: 'Producto', links: [
+    {label: 'Planes y precios', url: url('/planes')}, {label: 'Facturación electrónica', url: url('/planes')}, {label: 'Inventario', url: url('/planes')},
+    {label: 'Punto de venta', url: url('/planes')}, {label: 'WhatsApp para equipos', url: url('/planes')}]},
+  {title: 'Empresa', links: [
+    {label: 'Sobre nosotros', url: '#'}, {label: 'Contacto', url: url('/contacto')}, {label: 'Trabaja con nosotros', url: '#'}, {label: 'Programa de socios', url: '#'}]},
+  {title: 'Ayuda', links: [
+    {label: 'Mi cuenta', url: url('/cliente')}, {label: 'Soporte técnico', url: url('/cliente/tickets')}, {label: 'Centro de ayuda', url: '#'}, {label: 'Estado del servicio', url: '#'}]},
+  {title: 'Legal', links: [
+    {label: 'Términos del servicio', url: theme_option('terms_url', '#')}, {label: 'Política de privacidad', url: theme_option('privacy_url', '#')},
+    {label: 'Política de cookies', url: '#'}, {label: 'Acuerdo de nivel de servicio', url: '#'}]},
+] %}
+<footer class="sc-footer">
+  <div class="sc-wrap">
+    <div class="sc-foot-top">
+      <div class="sc-foot-brand">
+        <a class="sc-logo" href="{{ saas.home_url }}">{% if site.logo %}<img src="{{ site.logo }}" alt="{{ saas.brand }}">{% else %}<i class="sc-mark"><span class="ph-fill ph-umbrella"></span></i><span>{{ saas.brand }}</span>{% endif %}</a>
+        <p>{{ site.footer_text }}</p>
+        <ul class="sc-foot-contact">
+          {% if site.contact.email %}<li><i class="ph ph-envelope-simple"></i><a href="mailto:{{ site.contact.email }}">{{ site.contact.email }}</a></li>{% endif %}
+          {% if site.contact.phone %}<li><i class="ph ph-phone"></i><a href="tel:{{ site.contact.phone|replace({' ': '', '(': '', ')': '', '-': ''}) }}">{{ site.contact.phone }}</a></li>{% endif %}
+          {% if saas.whatsapp %}<li><i class="ph ph-whatsapp-logo"></i><a href="https://wa.me/{{ saas.whatsapp }}" target="_blank" rel="noopener">WhatsApp</a></li>{% endif %}
+          {% if site.contact.address %}<li><i class="ph ph-map-pin"></i><span>{{ site.contact.address }}</span></li>{% endif %}
+          {% if theme_option('footer_hours') %}<li><i class="ph ph-clock"></i><span>{{ theme_option('footer_hours') }}</span></li>{% endif %}
+        </ul>
+      </div>
+      <div class="sc-foot-cols">
+        {% for col in columns %}
+          <div>
+            <h4>{{ col.title }}</h4>
+            <ul>{% for link in col.links %}<li><a href="{{ link.url }}" {% if link.url starts with 'http' and (not request.host or request.host not in link.url) %}target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a></li>{% endfor %}</ul>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="sc-foot-mid">
+      <div>
+        <h4>Formas de pago</h4>
+        {% include 'partials/payments.twig' %}
+      </div>
+      <div class="sc-foot-trust">
+        <span><i class="ph ph-lock-simple"></i> Conexión cifrada SSL</span>
+        <span><i class="ph ph-database"></i> Copias de seguridad diarias</span>
+        <span><i class="ph ph-flag-banner"></i> Facturación con NCF y e-CF</span>
+      </div>
+      {% if social %}
+      <div class="sc-foot-social">
+        {% for s in social %}<a href="{{ s.url }}" aria-label="{{ s.label }}" {% if s.url != '#' %}target="_blank" rel="noopener"{% endif %}><i class="{{ s.icon }}"></i></a>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="sc-foot-bottom">
+      <span>{{ site.copyright }}{% if theme_option('footer_rnc') %} · RNC {{ theme_option('footer_rnc') }}{% endif %} · Todos los derechos reservados.</span>
+      <span>Hecho en República Dominicana</span>
+    </div>
+  </div>
+</footer>

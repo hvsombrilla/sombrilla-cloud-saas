@@ -1,0 +1,46 @@
+{#
+  Theme Name: Sombrilla Cloud
+  Description: La línea gráfica de Sombrilla Cloud: cabecera con carrito y cuenta, barra inferior tipo app en el teléfono, portada con planes y pie completo. Se apoya en Studio SaaS.
+  Version: 3.0.0
+  Author: HV Sombrilla
+  Styles: assets/theme.css
+  Scripts: assets/theme.js
+#}
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>{{ title }}{% if title is not empty and title != saas.brand %} — {{ saas.brand }}{% endif %}</title>
+  {% if description is not empty %}<meta name="description" content="{{ description }}">{% endif %}
+  {{ head }}
+  {% if saas.css_url %}<link rel="stylesheet" href="{{ saas.css_url }}">{% endif %}{# componentes de Studio SaaS (.sc-*); después del CSS del tema, como siempre #}
+</head>
+<body class="{{ body_class }} theme-sombrilla-cloud {{ saas.tabs and not saas.flow ? 'has-tabbar' : '' }}">
+<a class="sc-skip" href="#contenido">Saltar al contenido</a>
+{% include 'partials/header.twig' %}
+
+{% if site.flash %}
+  <div class="sc-wrap" style="padding-top:16px">{% for type, msg in site.flash %}<div class="sc"><div class="sc-alert {{ type == 'error' ? 'sc-alert--bad' : 'sc-alert--ok' }}"><i class="ph {{ type == 'error' ? 'ph-warning-circle' : 'ph-check-circle' }}"></i><div>{{ msg }}</div></div></div>{% endfor %}</div>
+{% endif %}
+
+<main class="w-main" id="contenido">
+  {% block body %}{% if context == 'page' %}<div class="w-container w-page" style="padding-block:40px 70px"><div class="w-prose">{{ content }}</div></div>{% else %}{{ content }}{% endif %}{% endblock %}
+</main>
+
+{% include 'partials/footer.twig' %}
+
+{% if saas.tabs and not saas.flow %}
+<nav class="sc-tabbar" aria-label="Navegación">
+  {% for tab in saas.tabs %}
+    <a href="{{ tab.url }}" class="{{ tab.active ? 'is-on' : '' }}" {% if tab.active %}aria-current="page"{% endif %}>
+      <span class="sc-tab-ico"><i class="{{ tab.active ? 'ph-fill' : 'ph' }} ph-{{ tab.icon }}"></i>{% if tab.icon == 'shopping-cart-simple' and saas.cart %}<b>{{ saas.cart }}</b>{% endif %}</span>{{ tab.label }}
+    </a>
+  {% endfor %}
+</nav>
+{% endif %}
+{% if saas.whatsapp and not saas.flow %}<a class="sc-wa" href="https://wa.me/{{ saas.whatsapp }}" target="_blank" rel="noopener" aria-label="Escríbenos por WhatsApp"><i class="ph-fill ph-whatsapp-logo"></i><span>¿Dudas? Escríbenos</span></a>{% endif %}
+{{ foot }}
+</body>
+</html>

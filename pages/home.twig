@@ -1,0 +1,160 @@
+{# Portada de Sombrilla Cloud: página de Webs con Twig (layout «wide»). Los planes salen de data('plans'), que publica el plugin Studio SaaS. #}
+{% set m = saas.currency %}
+{% set who = [
+  ['storefront', 'Tiendas y comercios'], ['fork-knife', 'Restaurantes y cafeterías'], ['briefcase', 'Servicios profesionales'],
+  ['truck', 'Distribuidoras y mayoristas'], ['scissors', 'Salones y barberías'], ['wrench', 'Talleres'],
+  ['house-line', 'Emprendimientos desde casa'], ['users-three', 'Pymes con equipo'],
+] %}
+<div class="sc">
+<section class="sc-hero">
+  <div class="sc-wrap">
+    <div class="sc-hero-copy" data-reveal>
+      <span class="sc-badge"><i class="ph-fill ph-seal-check"></i> Para emprendedores y negocios en crecimiento</span>
+      <h1>Todo tu negocio en un solo sistema, <em>listo para usar</em></h1>
+      <p class="lead">Factura, controla tu inventario, cobra lo que te deben y atiende a tus clientes desde un solo lugar. Sin instalar nada, sin técnicos y con ayuda en español.</p>
+      <div class="sc-cta">
+        <a class="sc-btn sc-btn--lg" href="{{ url('/planes') }}">Ver planes <i class="ph ph-arrow-right"></i></a>
+        <a class="sc-btn sc-btn--lg sc-btn--ghost" href="{{ url('/contacto') }}"><i class="ph ph-chat-circle-dots"></i> Hablar con ventas</a>
+      </div>
+      <ul class="sc-hero-points">
+        <li><i class="ph ph-lightning"></i> Empiezas hoy mismo</li>
+        <li><i class="ph ph-shield-check"></i> Tus datos son solo tuyos</li>
+        <li><i class="ph ph-arrows-clockwise"></i> Cambias de plan cuando crezcas</li>
+      </ul>
+    </div>
+
+    <div class="sc-mock-wrap" aria-hidden="true" data-reveal>
+      <div class="sc-mock">
+        <div class="sc-mock-bar"><i></i><i></i><i></i><span>{{ saas.sample_host }}</span></div>
+        <div class="sc-mock-body">
+          <div class="sc-mock-top"><strong>Resumen de tu negocio</strong><small>Ejemplo</small></div>
+          <div class="sc-mock-kpis">
+            <div class="sc-mock-kpi"><span>Ventas del mes</span><strong>{{ (m ~ ' 184,500')|trim }}</strong><em><i class="ph ph-trend-up"></i> 12% más que el mes pasado</em></div>
+            <div class="sc-mock-kpi"><span>Por cobrar</span><strong>{{ (m ~ ' 36,200')|trim }}</strong><em class="warn">4 facturas pendientes</em></div>
+          </div>
+          <div class="sc-mock-chart">{% for h in [38, 52, 44, 61, 57, 72, 66, 84, 78, 92] %}<i style="--h:{{ h }}%;--d:{{ loop.index0 * 60 }}ms"></i>{% endfor %}</div>
+          <div class="sc-mock-list">
+            <div class="sc-mock-row"><span class="sc-mock-ico"><i class="ph ph-receipt"></i></span><span><b>Factura 0148</b><small>Ferretería Díaz</small></span><span class="sc-mock-tag">Pagada</span></div>
+            <div class="sc-mock-row"><span class="sc-mock-ico"><i class="ph ph-receipt"></i></span><span><b>Factura 0149</b><small>Salón Aurora</small></span><span class="sc-mock-tag warn">Por cobrar</span></div>
+            <div class="sc-mock-row"><span class="sc-mock-ico"><i class="ph ph-package"></i></span><span><b>Café en grano 1 lb</b><small>Quedan 3</small></span><span class="sc-mock-tag warn">Por agotarse</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="sc-mock-toast"><span><i class="ph-fill ph-bell-ringing"></i></span><div><b>Pago recibido</b><small>Ferretería Díaz · {{ (m ~ ' 12,450')|trim }}</small></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="sc-strip" aria-label="Pensado para negocios como el tuyo">
+  <div class="sc-marquee"><div class="sc-marquee-track">
+    {% for k in 0..1 %}{% for w in who %}<span {% if k %}aria-hidden="true"{% endif %}><i class="ph ph-{{ w[0] }}"></i> {{ w[1] }}</span>{% endfor %}{% endfor %}
+  </div></div>
+</section>
+
+<section class="sc-section">
+  <div class="sc-wrap">
+    <div class="sc-section-head" data-reveal>
+      <span class="sc-eyebrow">El problema</span>
+      <h2>¿Te suena familiar?</h2>
+      <p>Muchos negocios arrancan con cuadernos, hojas de Excel y mensajes sueltos. Funciona… hasta que el negocio crece.</p>
+    </div>
+    <div class="sc-pains">
+      <div class="sc-pain" data-reveal><i class="ph ph-file-xls"></i><q>Hago las facturas a mano o en Excel</q><p>Pierdes tiempo, te equivocas y cuesta saber cuánto vendiste de verdad.</p></div>
+      <div class="sc-pain" data-reveal><i class="ph ph-package"></i><q>No sé cuánto me queda en inventario</q><p>Te enteras de que se agotó un producto cuando el cliente ya lo pidió.</p></div>
+      <div class="sc-pain" data-reveal><i class="ph ph-hand-coins"></i><q>Se me olvida cobrar</q><p>Hay clientes que te deben y nadie lleva la cuenta de quién y cuánto.</p></div>
+      <div class="sc-pain" data-reveal><i class="ph ph-files"></i><q>Cada cosa está en un sitio distinto</q><p>Clientes en el celular, ventas en un cuaderno, archivos en cinco carpetas.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="sc-section sc-section--alt" id="funciones">
+  <div class="sc-wrap">
+    <div class="sc-section-head" data-reveal>
+      <span class="sc-eyebrow">La solución</span>
+      <h2>Un solo sistema para llevar tu negocio</h2>
+      <p>Todo conectado, para que registres cada cosa una sola vez.</p>
+    </div>
+    <div class="sc-features sc-features--4">
+      <div class="sc-feature" data-reveal><div class="ico"><i class="ph ph-receipt"></i></div><h3>Facturas y cobros</h3><p>Crea facturas y cotizaciones en segundos, registra pagos y ve de un vistazo quién te debe.</p></div>
+      <div class="sc-feature" data-reveal><div class="ico"><i class="ph ph-package"></i></div><h3>Inventario al día</h3><p>Productos, precios y existencias. Cada venta descuenta del inventario y te avisa cuando algo se está acabando.</p></div>
+      <div class="sc-feature" data-reveal><div class="ico"><i class="ph ph-cash-register"></i></div><h3>Caja de venta</h3><p>Vende desde una tablet o el celular, incluso si se va el internet.</p></div>
+      <div class="sc-feature" data-reveal><div class="ico"><i class="ph ph-address-book"></i></div><h3>Clientes en orden</h3><p>Una ficha por cliente con su historial de compras y lo que te debe.</p></div>
+      <div class="sc-feature" data-reveal><div class="ico"><i class="ph ph-whatsapp-logo"></i></div><h3>Atención por WhatsApp</h3><p>Atiende a tus clientes en equipo desde una sola bandeja de conversaciones.</p></div>
+      <div class="sc-feature" data-reveal><div class="ico"><i class="ph ph-kanban"></i></div><h3>Tu equipo coordinado</h3><p>Chat interno, tareas, proyectos y archivos compartidos, cada quien con sus permisos.</p></div>
+      <div class="sc-feature" data-reveal><div class="ico"><i class="ph ph-flag-banner"></i></div><h3>Hecho para República Dominicana</h3><p>Impuestos como el ITBIS y facturación electrónica (e-CF) para estar al día con la DGII.</p></div>
+      <div class="sc-feature" data-reveal><div class="ico"><i class="ph ph-cloud-check"></i></div><h3>Sin instalar nada</h3><p>Entras desde el navegador, con tus datos aislados y protegidos, y te ayudamos en español.</p></div>
+    </div>
+  </div>
+</section>
+
+{# Planes: los de la primera categoría visible, máximo 4 (misma regla que la portada anterior). #}
+{% set primero = data('plans').first() %}
+{% set planes = primero ? data('plans').where('category', primero.category).limit(4).get() : [] %}
+{% if planes %}
+<section class="sc-section" id="planes">
+  <div class="sc-wrap">
+    <div class="sc-section-head" data-reveal><span class="sc-eyebrow">Planes</span><h2>Elige el plan que se ajusta a tu negocio</h2><p>Empieza con lo que necesitas hoy. Cuando tu negocio crezca, cambias de plan sin perder nada.</p></div>
+    <div class="sc-plans">
+      {% for plan in planes %}
+      <article class="sc-plan {{ plan.is_featured ? 'is-featured' : '' }}">
+        {% if plan.is_featured %}<span class="ribbon"><i class="ph-fill ph-star"></i> Más elegido</span>{% endif %}
+        <h3>{{ plan.name }}</h3>
+        <div class="tag">{{ plan.tagline }}</div>
+        {% if plan.quote_only %}
+          <div class="sc-price sc-price--quote"><strong>A tu medida</strong></div>
+          <div class="sub">Te preparamos una propuesta según tu negocio</div>
+        {% elseif plan.price_label %}
+          <div class="sc-price"><strong>{{ plan.price_label }}</strong> <span>{{ plan.suffix }}</span></div>
+          <div class="sub">
+            {% if plan.monthly_label %}Equivale a {{ plan.monthly_label }}/mes {% if plan.savings > 0 %}· <b>ahorras {{ plan.savings }}%</b>{% endif %}{% endif %}
+            {% if plan.setup_label %}{{ plan.cycle != 'monthly' ? '·' : '' }} + {{ plan.setup_label }} de instalación{% endif %}
+          </div>
+        {% endif %}
+        <ul>{% for f in plan.features %}<li>{{ f }}</li>{% endfor %}</ul>
+        <a class="sc-btn sc-btn--block {{ plan.is_featured ? '' : 'sc-btn--ghost' }}" href="{{ plan.url }}">{{ plan.quote_only ? 'Pedir propuesta' : 'Elegir ' ~ plan.name }} <i class="ph ph-arrow-right"></i></a>
+      </article>
+      {% endfor %}
+    </div>
+    <p class="sc-center" style="margin-top:28px"><a class="sc-btn sc-btn--ghost" href="{{ url('/planes') }}">Comparar todos los planes <i class="ph ph-arrow-right"></i></a></p>
+  </div>
+</section>
+{% endif %}
+
+<section class="sc-section sc-section--alt">
+  <div class="sc-wrap">
+    <div class="sc-section-head" data-reveal><span class="sc-eyebrow">Cómo funciona</span><h2>Así de fácil es empezar</h2></div>
+    <ol class="sc-howto">
+      <li data-reveal><b>1</b><div><h3>Elige tu plan</h3><p>Selecciona el plan y cada cuánto prefieres pagar.</p></div></li>
+      <li data-reveal><b>2</b><div><h3>Paga por transferencia</h3><p>Te damos los datos bancarios y subes el comprobante desde tu cuenta.</p></div></li>
+      <li data-reveal><b>3</b><div><h3>Confirmamos tu pago</h3><p>Lo validamos y te enviamos tu factura.</p></div></li>
+      <li data-reveal><b>4</b><div><h3>Entra y empieza a usarlo</h3><p>Recibes tus accesos por correo y entras con un clic.</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sc-section">
+  <div class="sc-wrap">
+    <div class="sc-section-head" data-reveal><span class="sc-eyebrow">Preguntas frecuentes</span><h2>Lo que más nos preguntan</h2></div>
+    <div class="sc-faq">
+      <details><summary>¿Necesito saber de tecnología?<i class="ph ph-plus"></i></summary><p>No. Entras desde el navegador, como a cualquier página, y el sistema te guía. Si te trabas, nuestro equipo te ayuda en español.</p></details>
+      <details><summary>¿Tengo que instalar algo?<i class="ph ph-plus"></i></summary><p>No. Tu sistema se prepara por ti y funciona desde la computadora, la tablet o el celular.</p></details>
+      <details><summary>¿Mis datos están seguros y son solo míos?<i class="ph ph-plus"></i></summary><p>Sí. Cada negocio tiene su propio espacio, con su información separada de la de los demás.</p></details>
+      <details><summary>¿Qué pasa si mi negocio crece?<i class="ph ph-plus"></i></summary><p>Cambias a un plan con más usuarios y más espacio cuando lo necesites, sin empezar de cero.</p></details>
+      <details><summary>¿Puedo usar mi propio nombre de dominio?<i class="ph ph-plus"></i></summary><p>Sí. Puedes entrar por una dirección propia de nuestro dominio o conectar la de tu negocio.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="sc-section" style="padding-top:0">
+  <div class="sc-wrap">
+    <div class="sc-final" data-reveal>
+      <h2>Deja de perseguir papeles y dedícate a vender</h2>
+      <p>Pon tu negocio en orden hoy. Si tienes dudas, te ayudamos a elegir el plan ideal.</p>
+      <div class="sc-cta">
+        <a class="sc-btn sc-btn--lg sc-btn--white" href="{{ url('/planes') }}">Ver planes <i class="ph ph-arrow-right"></i></a>
+        <a class="sc-btn sc-btn--lg sc-btn--outline-white" href="{{ url('/contacto') }}">Hablar con ventas</a>
+      </div>
+    </div>
+  </div>
+</section>
+</div>

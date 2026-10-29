@@ -1,0 +1,52 @@
+{
+  "defaults": {
+    "color_primary": "#2b5cff",
+    "color_accent": "#7a4dff",
+    "color_bg": "#f6f7fb",
+    "color_surface": "#ffffff",
+    "color_text": "#131b2e",
+    "color_muted": "#5b6578",
+    "color_border": "#e4e7ef",
+    "color_header_bg": "#ffffff",
+    "color_header_text": "#131b2e",
+    "color_footer_bg": "#ffffff",
+    "color_footer_text": "#131b2e",
+    "font_heading": "inter",
+    "font_body": "inter",
+    "radius": 14,
+    "footer_text": "El sistema para facturar, vender y llevar el inventario de tu negocio, sin instalar nada.",
+    "contact_email": "hola@sombrilla.cloud",
+    "contact_phone": "+1 (809) 555-0142",
+    "contact_address": "Av. Winston Churchill 1099, Torre Empresarial, piso 7, Santo Domingo, República Dominicana"
+  },
+  "settings": [
+    {
+      "id": "footer_hours",
+      "type": "text",
+      "label": "Horario de atención",
+      "default": "Lunes a viernes, 8:00 a. m. – 6:00 p. m.",
+      "group": "footer"
+    },
+    {
+      "id": "footer_rnc",
+      "type": "text",
+      "label": "RNC",
+      "default": "1-32-00000-0",
+      "group": "footer"
+    },
+    {
+      "id": "terms_url",
+      "type": "url",
+      "label": "URL de los términos del servicio",
+      "default": "",
+      "group": "footer"
+    },
+    {
+      "id": "privacy_url",
+      "type": "url",
+      "label": "URL de la política de privacidad",
+      "default": "",
+      "group": "footer"
+    }
+  ]
+}
