@@ -26,6 +26,10 @@ body.theme-sombrilla-cloud.has-tabbar { padding-bottom: calc(var(--sc-tab-h) + e
 .sc-logo span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sc-logo img { height: min(var(--w-logo-height, 36px), 34px); width: auto; display: block; }
 .sc-mark { width: 32px; height: 32px; border-radius: 10px; flex: none; display: grid; place-items: center; font-style: normal; color: #fff; font-size: 1.05rem; background: linear-gradient(140deg, var(--sc-brand) 10%, color-mix(in srgb, var(--sc-brand) 45%, var(--sc-accent)) 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 4px 10px -3px color-mix(in srgb, var(--sc-brand) 60%, transparent); }
+/* Logo oficial: completo en pantallas anchas, solo el icono en el teléfono */
+.sc-logo img.sc-logo-full { height: 30px; display: none; } .sc-logo img.sc-logo-icon { height: 32px; }
+@media (min-width: 480px) { .sc-logo img.sc-logo-full { display: block; } .sc-logo img.sc-logo-icon { display: none; } }
+.sc-foot-brand .sc-logo img.sc-logo-full { display: block; height: 34px; } .sc-foot-brand .sc-logo img.sc-logo-icon { display: none; }
 .sc-nav { display: none; }
 .sc-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .sc-icon-btn { position: relative; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--sc-ink) !important; font-size: 1.3rem; text-decoration: none !important; transition: background .15s; }

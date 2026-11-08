@@ -13,14 +13,14 @@
   {title: 'Ayuda', links: [
     {label: 'Mi cuenta', url: url('/cliente')}, {label: 'Soporte técnico', url: url('/cliente/tickets')}, {label: 'Centro de ayuda', url: '#'}, {label: 'Estado del servicio', url: '#'}]},
   {title: 'Legal', links: [
-    {label: 'Términos del servicio', url: theme_option('terms_url', '#')}, {label: 'Política de privacidad', url: theme_option('privacy_url', '#')},
-    {label: 'Política de cookies', url: '#'}, {label: 'Acuerdo de nivel de servicio', url: '#'}]},
+    {label: 'Términos del servicio', url: theme_option('terms_url') ?: url('/terminos')}, {label: 'Política de privacidad', url: theme_option('privacy_url') ?: url('/privacidad')},
+    {label: 'Política de cookies', url: url('/cookies')}, {label: 'Acuerdo de nivel de servicio', url: '#'}]},
 ] %}
 <footer class="sc-footer">
   <div class="sc-wrap">
     <div class="sc-foot-top">
       <div class="sc-foot-brand">
-        <a class="sc-logo" href="{{ saas.home_url }}">{% if site.logo %}<img src="{{ site.logo }}" alt="{{ saas.brand }}">{% else %}<i class="sc-mark"><span class="ph-fill ph-umbrella"></span></i><span>{{ saas.brand }}</span>{% endif %}</a>
+        <a class="sc-logo" href="{{ saas.home_url }}">{% if site.logo %}<img src="{{ site.logo }}" alt="{{ saas.brand }}">{% else %}<img class="sc-logo-full" src="{{ theme_asset('assets/img/logo.svg') }}" alt="{{ saas.brand }}" width="250" height="34"><img class="sc-logo-icon" src="{{ theme_asset('assets/img/icono.svg') }}" alt="{{ saas.brand }}" width="51" height="34">{% endif %}</a>
         <p>{{ site.footer_text }}</p>
         <ul class="sc-foot-contact">
           {% if site.contact.email %}<li><i class="ph ph-envelope-simple"></i><a href="mailto:{{ site.contact.email }}">{{ site.contact.email }}</a></li>{% endif %}

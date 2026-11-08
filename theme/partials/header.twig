@@ -1,7 +1,7 @@
 <header class="sc-header" id="scHeader">
   <div class="sc-wrap">
     <a class="sc-logo" href="{{ saas.home_url }}" aria-label="{{ saas.brand }}, inicio">
-      {% if site.logo %}<img src="{{ site.logo }}" alt="{{ saas.brand }}">{% else %}<i class="sc-mark"><span class="ph-fill ph-umbrella"></span></i><span>{{ saas.brand }}</span>{% endif %}
+      {% if site.logo %}<img src="{{ site.logo }}" alt="{{ saas.brand }}">{% else %}<img class="sc-logo-full" src="{{ theme_asset('assets/img/logo.svg') }}" alt="{{ saas.brand }}" width="250" height="34"><img class="sc-logo-icon" src="{{ theme_asset('assets/img/icono.svg') }}" alt="{{ saas.brand }}" width="51" height="34">{% endif %}
     </a>
     <nav class="sc-nav" aria-label="Principal">
       {% for item in saas.nav %}<a href="{{ item.url }}" class="{{ item.active ? 'is-on' : '' }}">{{ item.label }}</a>{% endfor %}
